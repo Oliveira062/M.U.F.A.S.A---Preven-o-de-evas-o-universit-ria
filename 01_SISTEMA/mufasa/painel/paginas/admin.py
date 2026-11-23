@@ -1,5 +1,3 @@
-"""Administracao tecnica (Figma Parte 6): servicos, cargas, contas, parametros e registros. Sem dado de aluno."""
-
 import html
 
 import streamlit as st

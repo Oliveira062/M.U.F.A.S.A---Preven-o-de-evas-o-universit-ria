@@ -1,15 +1,3 @@
-"""
-Move apoio psicossocial e acessibilidade da tabela alunos para apoio_aluno,
-cifrados, e remove as colunas antigas. Rodar UMA vez, como dono do banco,
-depois de sql/b1_correcoes.sql:
-
-    DATABASE_URL=postgresql+psycopg://<dono>@host/mufasa APOIO_CHAVE=<chave> \\
-        python -m scripts.migrar_apoio
-
-A copia e a remocao das colunas sao uma transacao so: se algo falhar no meio,
-nada muda. Rodar de novo depois de concluido nao faz nada.
-"""
-
 import os
 import sys
 

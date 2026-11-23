@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# Liga o MUFASA no macOS ou Linux e abre o painel no navegador.
-# Uso: ./iniciar_mufasa.sh   (pode rodar quantas vezes quiser)
 set -euo pipefail
 cd "$(dirname "$0")"
 

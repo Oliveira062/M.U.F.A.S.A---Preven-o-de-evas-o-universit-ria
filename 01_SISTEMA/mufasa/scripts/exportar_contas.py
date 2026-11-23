@@ -1,13 +1,3 @@
-"""
-Exporta as contas do banco para banco/contas_iniciais.sql (so hashes bcrypt),
-para que outra instalacao tenha os mesmos logins e senhas iniciais.
-
-    python -m scripts.exportar_contas
-
-O arquivo nao tem senha em texto; as senhas iniciais ficam so no CSV gerado
-por scripts.gerar_contas, que deve ser entregue por canal seguro.
-"""
-
 import os
 import sys
 

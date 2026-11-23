@@ -1,18 +1,3 @@
--- Migracao 002: atividades com prazo e visoes novas do chatbot.
--- Criada em 28/10/2026 (pedido do João). Depois de aplicada, este arquivo nao se edita.
---
--- 1. atividades_aluno: cada atividade do aluno em uma turma, com prazo e data
---    de entrega. Enquanto a instituicao nao carrega as atividades reais, o
---    banco de demonstracao recebe atividades SIMULADAS (coluna simulada = TRUE),
---    geradas por scripts/simular_atividades.py de forma coerente com
---    indicadores_academicos.atividades_pendentes.
--- 2. vw_chat_atividades_aluno: o que o aluno pergunta ("o que vence esta semana?").
--- 3. vw_chat_busca_alunos: indicadores atuais + nivel de risco + tendencia, para
---    as buscas com filtros combinados da equipe e para respostas pessoais.
--- 4. vw_chat_deslocamento: distancia e tempo de deslocamento. E dado
---    socioeconomico: o chatbot so usa para o nucleo de apoio, o unico perfil
---    que ja ve esse dado no painel (app/api/visibilidade.py).
-
 CREATE TABLE IF NOT EXISTS atividades_aluno (
     id_atividade  BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     id_aluno      VARCHAR(255) NOT NULL REFERENCES alunos(id_aluno),
@@ -24,7 +9,7 @@ CREATE TABLE IF NOT EXISTS atividades_aluno (
     simulada      BOOLEAN      NOT NULL DEFAULT FALSE
 );
 CREATE INDEX IF NOT EXISTS ix_atividades_aluno_prazo ON atividades_aluno (id_aluno, prazo_em);
--- Mesmo dono das demais tabelas do B1, para as visoes (dono mufasa_dono) poderem ler.
+
 ALTER TABLE atividades_aluno OWNER TO mufasa_dono;
 
 CREATE OR REPLACE VIEW vw_chat_atividades_aluno WITH (security_barrier = true) AS

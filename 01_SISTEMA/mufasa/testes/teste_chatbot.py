@@ -1,12 +1,3 @@
-"""
-Testes do chatbot (SRS: RN06, RN13, RF13, Anexo D.1, D.2 e E.2), no
-PostgreSQL de teste (ver conftest.py), com o servico do chat no seu
-proprio app (app.main_chat) e o perfil de banco mufasa_chat, que so ve as
-visoes vw_chat_*. A Groq e substituida por uma funcao falsa.
-
-    pytest testes/teste_chatbot.py -v
-"""
-
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -20,7 +11,6 @@ from testes.conftest import entrar as _entrar
 
 
 class _Servicos:
-    """Login na API e conversa no servico do chat, como no painel."""
 
     def __init__(self, api, chat):
         self.api, self.chat, self.engine = api, chat, api.engine
@@ -36,13 +26,12 @@ class _Servicos:
 
 
 @pytest.fixture(scope="module")
-def cliente(cliente, cliente_chat):  # noqa: F811 - sobrepoe o cliente do conftest neste modulo
+def cliente(cliente, cliente_chat):
     return _Servicos(cliente, cliente_chat)
 
 
 @pytest.fixture(autouse=True)
 def _ia_desligada(monkeypatch):
-    # Por padrao a IA fica desligada nos testes; os testes de IA ligam com uma falsa.
     monkeypatch.setattr(ia, "completar", lambda *a, **k: None)
 
 
@@ -57,10 +46,6 @@ def perguntar(cliente, login, texto):
 def _sql(cliente, consulta, params=None):
     return sql(cliente.api, consulta, params)
 
-
-# ---------------------------------------------------------------------------
-# Autenticacao e entrada (correcao dos achados C-1 e C-2 da auditoria)
-# ---------------------------------------------------------------------------
 
 def test_sem_token_e_recusado(cliente):
     r = cliente.post("/api/v1/chat/consultas", json={"texto": "minhas notas"})
@@ -79,10 +64,6 @@ def test_texto_vazio_ou_longo_demais(cliente):
     assert cliente.post("/api/v1/chat/consultas", headers=h, json={"texto": "a" * 501}).status_code == 422
 
 
-# ---------------------------------------------------------------------------
-# Dados reais, sem invencao (C-5)
-# ---------------------------------------------------------------------------
-
 def test_notas_vem_do_banco_e_zero_continua_zero(cliente):
     r = perguntar(cliente, "ALU0001", "quais são minhas notas?")
     assert r.status_code == 200, r.text
@@ -93,7 +74,6 @@ def test_notas_vem_do_banco_e_zero_continua_zero(cliente):
     calculo = next(d for d in corpo["dados"] if d["disciplina"] == "Cálculo I")
     assert calculo["va2"] == "0"
     assert "VA2 0 ·" in corpo["resposta"]
-    # Nada da aluna ALU0002
     assert "8,8" not in corpo["resposta"]
 
 
@@ -107,8 +87,6 @@ def test_frequencia_de_uma_disciplina(cliente):
 
 def test_frequencia_geral_usa_indicadores(cliente):
     corpo = perguntar(cliente, "ALU0001", "quantas faltas eu tenho?").json()
-    # Frequencia geral recalculada das disciplinas (sql/b1_recalculo_indicadores.sql):
-    # (77*60 + 37*80 + 92*80) / 220 = 67,9 -> 67%.
     assert "67%" in corpo["resposta"] and "5 falta" in corpo["resposta"]
 
 
@@ -129,15 +107,10 @@ def test_aluno_sem_indicadores_recebe_ausencia_de_dado(cliente):
 def test_meu_risco_com_aviso_metodologico(cliente):
     corpo = perguntar(cliente, "ALU0001", "qual é o meu nível de risco?").json()
     assert corpo["intencao"] == it.MEU_RISCO
-    # Nivel calculado pelo servico de calculo (scores_risco), na data do calculo.
     assert "Crítico" in corpo["resposta"] and f"{datetime.now():%d/%m/%Y}" in corpo["resposta"]
     assert "Não é previsão sobre a pessoa" in corpo["resposta"]
     assert corpo["atalho_painel"].startswith("/painel/")
 
-
-# ---------------------------------------------------------------------------
-# Escopo e recusas obrigatorias (E.2, RN07, RN17)
-# ---------------------------------------------------------------------------
 
 def test_aluno_nao_ve_outro_aluno(cliente):
     corpo = perguntar(cliente, "ALU0001", "qual a nota do ALU0002?").json()
@@ -186,15 +159,11 @@ def test_fora_do_escopo(cliente):
     assert perguntar(cliente, "ALU0001", "me passa uma receita de bolo").json()["intencao"] == it.FORA_DO_ESCOPO
 
 
-# ---------------------------------------------------------------------------
-# Equipe: so dentro do proprio escopo
-# ---------------------------------------------------------------------------
-
 def test_docente_resumo_so_das_proprias_turmas(cliente):
     corpo = perguntar(cliente, "prof.um", "quantos alunos em risco nas minhas turmas?").json()
     assert corpo["intencao"] == it.RESUMO_RISCO
     niveis = {d["nivel"]: d["total"] for d in corpo["dados"]}
-    assert niveis == {"CRITICO": 1, "BAIXO": 1}   # ALU0001 e ALU0002; ALU0003 e de outro professor
+    assert niveis == {"CRITICO": 1, "BAIXO": 1}
 
 
 def test_docente_aluno_fora_do_escopo_e_negado(cliente):
@@ -215,7 +184,7 @@ def test_docente_aluno_no_escopo(cliente):
 def test_coordenacao_lista_maior_risco_critico_primeiro(cliente):
     corpo = perguntar(cliente, "coord.ia", "quais alunos têm maior risco?").json()
     assert corpo["intencao"] == it.MAIOR_RISCO
-    assert [d["matricula"] for d in corpo["dados"]] == ["ALU0001"]   # ALU0003 e de outro curso
+    assert [d["matricula"] for d in corpo["dados"]] == ["ALU0001"]
     assert "Não é previsão sobre a pessoa" in corpo["resposta"]
 
 
@@ -228,10 +197,6 @@ def test_direcao_nao_consulta_aluno_pelo_chat(cliente):
     corpo = perguntar(cliente, "direcao", "como está o aluno ALU0001?").json()
     assert corpo["recusa"] is True and corpo["dados"] == []
 
-
-# ---------------------------------------------------------------------------
-# Limite, inatividade e historico (Anexo D.1, RN13)
-# ---------------------------------------------------------------------------
 
 def test_limite_de_20_mensagens_por_minuto(cliente):
     for _ in range(20):
@@ -278,10 +243,6 @@ def test_encerrar_conversa(cliente):
     assert cliente.post("/api/v1/chat/encerrar", headers=h).status_code == 204
     assert perguntar(cliente, "ALU0001", "oi").json()["conversa"] != antes
 
-
-# ---------------------------------------------------------------------------
-# IA: humaniza sem receber dado e sem inventar numero (C-3, C-4)
-# ---------------------------------------------------------------------------
 
 def _ia_falsa(monkeypatch, resposta):
     enviados = []
@@ -338,7 +299,6 @@ def test_classificacao_pela_ia_fica_desligada_por_padrao(cliente, monkeypatch):
     enviados = _ia_falsa(monkeypatch, "NOTAS")
     corpo = perguntar(cliente, "ALU0001", "me conta aquilo lá, Julia aqui").json()
     assert corpo["intencao"] == it.NAO_ENTENDI
-    # Nenhuma chamada de classificacao; a conversa livre recebe so a pergunta anonimizada.
     assert not any("Classifique" in m["content"] for msgs in enviados for m in msgs)
     assert "Julia" not in str(enviados)
 
@@ -351,16 +311,16 @@ def test_ia_classifica_so_dentro_da_lista(cliente, monkeypatch):
     assert perguntar(cliente, "ALU0001", "me conta aquilo lá").json()["intencao"] == it.NOTAS
     _ia_falsa(monkeypatch, "LIBERAR_TUDO")
     assert perguntar(cliente, "ALU0001", "xpto qwerty").json()["intencao"] == it.NAO_ENTENDI
-    _ia_falsa(monkeypatch, "ALUNOS_DE_MAIOR_RISCO")   # intencao de equipe nao vale para aluno
+    _ia_falsa(monkeypatch, "ALUNOS_DE_MAIOR_RISCO")
     corpo = perguntar(cliente, "ALU0001", "xpto qwerty").json()
     assert corpo["intencao"] == it.NAO_ENTENDI and corpo["dados"] == []
 
 
 def test_validacao_da_resposta_da_ia():
     assert resposta_da_ia_valida("Oi [[A]] e [[DETALHES]]", ["A", "DETALHES"])
-    assert not resposta_da_ia_valida("Oi [[A]]", ["A", "DETALHES"])             # faltou
-    assert not resposta_da_ia_valida("Oi [[A]] [[B]] [[DETALHES]]", ["A", "DETALHES"])  # inventou
-    assert not resposta_da_ia_valida("Nota 10 [[A]] [[DETALHES]]", ["A", "DETALHES"])   # numero
+    assert not resposta_da_ia_valida("Oi [[A]]", ["A", "DETALHES"])
+    assert not resposta_da_ia_valida("Oi [[A]] [[B]] [[DETALHES]]", ["A", "DETALHES"])
+    assert not resposta_da_ia_valida("Nota 10 [[A]] [[DETALHES]]", ["A", "DETALHES"])
     assert not resposta_da_ia_valida("Veja https://x.com [[A]] [[DETALHES]]", ["A", "DETALHES"])
     assert not resposta_da_ia_valida("<script>[[A]] [[DETALHES]]", ["A", "DETALHES"])
 
@@ -372,10 +332,6 @@ def test_redacao_de_dados_pessoais():
         assert v not in r
     assert not any(c.isdigit() for c in texto_para_ia("tirei 7,5 na VA2 e tenho 20 anos"))
 
-
-# ---------------------------------------------------------------------------
-# Buscas combinadas, atividades com prazo, respostas pessoais e conversa livre (28/10/2026)
-# ---------------------------------------------------------------------------
 
 def test_interpretador_de_filtros():
     from app.chatbot.filtros import descrever, interpretar
@@ -402,7 +358,7 @@ def test_coordenacao_busca_com_filtros_combinados(cliente):
     corpo = perguntar(cliente, "coord.ia", "quais alunos têm frequência abaixo de 80% e média acima de 2?").json()
     assert corpo["intencao"] == it.BUSCA_ALUNOS
     matriculas = {d["matricula"] for d in corpo["dados"]}
-    assert matriculas and matriculas <= {"ALU0001", "ALU0002", "ALU0004"}   # so o curso dela
+    assert matriculas and matriculas <= {"ALU0001", "ALU0002", "ALU0004"}
     assert all(float(d["frequencia_pct"].replace(",", ".")) < 80 for d in corpo["dados"])
     assert "no seu curso com frequência abaixo de 80% e média acima de 2" in corpo["resposta"]
     assert "distancia_km" not in corpo["dados"][0]
@@ -414,7 +370,7 @@ def test_distancia_so_para_o_nucleo_de_apoio(cliente):
     assert all("distancia_km" not in d for d in corpo["dados"])
     corpo = perguntar(cliente, "nucleo.ia", "alunos que moram a mais de 5 km com frequência abaixo de 100%").json()
     assert corpo["intencao"] == it.BUSCA_ALUNOS
-    assert all(d["nivel"] in ("CRITICO", "ALTO") for d in corpo["dados"])   # nucleo: so alunos com alerta
+    assert all(d["nivel"] in ("CRITICO", "ALTO") for d in corpo["dados"])
 
 
 def test_docente_busca_so_nas_proprias_turmas(cliente):
@@ -434,7 +390,7 @@ def test_atividades_com_prazo_e_nome_do_aluno(cliente):
     assert corpo["intencao"] == it.PENDENCIAS and corpo["registros_considerados"] == 3
     r = corpo["resposta"]
     assert r.startswith("Julia, você tem 3 atividades") and "Lista 3: vence amanhã" in r
-    assert "Relatório: atrasada desde" in r and "Trabalho final" not in r   # fora da semana
+    assert "Relatório: atrasada desde" in r and "Trabalho final" not in r
     assert "ainda tem 1 atividade" in r
     _sql(cliente, "DELETE FROM atividades_aluno WHERE id_aluno = 'ALU0001'")
     assert "nenhuma atividade pendente" in perguntar(cliente, "ALU0001", "tenho atividades pendentes?").json()["resposta"]

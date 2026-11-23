@@ -1,5 +1,3 @@
-"""Encarregado de dados (Figma Parte 6): trilha de auditoria e pedidos dos titulares (LGPD art. 18 e 37)."""
-
 from datetime import datetime, time
 from zoneinfo import ZoneInfo
 

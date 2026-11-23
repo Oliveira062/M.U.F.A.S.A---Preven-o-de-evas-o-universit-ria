@@ -1,11 +1,3 @@
-"""
-Validacao de CSV de carga (RN08, RF06, Anexo C.2), antes de qualquer gravacao.
-
-Ordem do pipeline (RN08): recepcao, formato, dominio, padronizacao,
-duplicidade. A carga e tudo ou nada: com qualquer linha invalida, nenhuma
-linha e aplicada, e o relatorio lista linha, campo, valor recebido e motivo.
-"""
-
 import csv
 import io
 import math
@@ -27,13 +19,13 @@ SITUACOES = {"Aprovado", "Reprovado", "Cursando"}
 
 
 class ArquivoInvalido(ValueError):
-    """O arquivo inteiro e recusado (formato, tamanho, cabecalho)."""
+    pass
 
 
 @dataclass
 class Resultado:
-    validas: list = field(default_factory=list)       # (numero, dados)
-    erros: list = field(default_factory=list)         # (numero, {campo, valor, motivo})
+    validas: list = field(default_factory=list)
+    erros: list = field(default_factory=list)
     total: int = 0
 
 
@@ -93,10 +85,6 @@ def ler_csv(conteudo: bytes, tipo: str) -> list[dict]:
 
 
 def validar(linhas: list[dict], tipo: str, alunos: set, matriculas: dict) -> Resultado:
-    """
-    alunos: matriculas de aluno existentes. matriculas: (id_aluno, id_turma) -> id_matricula.
-    Numero da linha conta o cabecalho como linha 1, como no editor de planilha.
-    """
     r = Resultado(total=len(linhas))
     vistos = {}
     for indice, bruta in enumerate(linhas, start=2):

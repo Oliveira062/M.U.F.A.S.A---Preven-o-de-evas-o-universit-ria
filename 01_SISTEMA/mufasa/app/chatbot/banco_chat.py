@@ -1,12 +1,3 @@
-"""
-Conexao do chatbot com o banco (RN06, Anexo D.2).
-
-O chatbot usa o perfil mufasa_chat, que so enxerga as visoes vw_chat_*
-(sem dado socioeconomico, sem saude, sem senha) e as tabelas chat_*.
-Mesmo que alguem consiga mudar o que o chatbot consulta, o banco recusa
-tudo o que esta fora dessas visoes.
-"""
-
 from collections.abc import Iterator
 
 from sqlalchemy import create_engine

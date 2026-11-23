@@ -1,11 +1,3 @@
-"""
-Leitura do arquivo .env para os scripts (sem dependencia extra).
-
-Regras do formato: uma variavel por linha (NOME=valor), linhas com # sao
-comentario, aspas simples ou duplas em volta do valor sao removidas. Uma
-variavel ja definida no sistema vale mais que a do arquivo.
-"""
-
 import os
 from pathlib import Path
 

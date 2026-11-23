@@ -1,15 +1,3 @@
-"""
-Testes de ponta a ponta dos fluxos do painel (F1) contra a API e o banco de
-teste: primeiro acesso, fila de alertas, encerramento (CA20), agendamento
-(RN14), parametros versionados (RN22), carga de CSV (RN08), paineis com
-supressao (CA19), area do aluno (RN17), administracao e encarregado.
-
-Rodam depois de teste_api e teste_chatbot (ordem alfabetica): mudam
-parametros e dados do banco de teste, nunca do banco principal.
-
-    pytest testes/teste_fluxos.py -v
-"""
-
 import io
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -31,10 +19,6 @@ def alerta_de(cliente, aluno):
                        "ORDER BY id_alerta DESC LIMIT 1", a=aluno)
 
 
-# ---------------------------------------------------------------------------
-# Conta e primeiro acesso
-# ---------------------------------------------------------------------------
-
 def test_conta_eu_mostra_perfil_e_pendencias(cliente):
     r = cliente.get("/api/v1/conta/eu", headers=entrar(cliente, "coord.ia"))
     assert r.status_code == 200
@@ -50,7 +34,6 @@ def test_conta_nova_exige_trocar_senha_antes_de_usar(cliente):
     cab = entrar(cliente, "nae.novo", senha=provisoria, perfil="NUCLEO_APOIO")
     bloqueado = cliente.get("/api/v1/alertas", headers=cab)
     assert bloqueado.status_code == 403 and bloqueado.headers.get("X-Pendencia") in ("senha", "termo")
-    # Senha fraca ou com o login dentro e recusada.
     fraca = cliente.post("/api/v1/conta/senha", headers=cab, json={"senha_atual": provisoria, "senha_nova": "nae.novo123"})
     assert fraca.status_code == 422
     ok = cliente.post("/api/v1/conta/senha", headers=cab,
@@ -67,16 +50,12 @@ def test_admin_nao_le_dado_de_aluno(cliente):
     assert cliente.get("/api/v1/alunos/ALU0001/score", headers=cab).status_code == 403
 
 
-# ---------------------------------------------------------------------------
-# Fila de alertas e encerramento (RN03, RF18, CA20, RN19)
-# ---------------------------------------------------------------------------
-
 def test_fila_da_coordenacao_tem_critico_primeiro(cliente):
     r = cliente.get("/api/v1/alertas", headers=entrar(cliente, "coord.ia"))
     assert r.status_code == 200
     itens = r.json()["itens"]
     assert itens and itens[0]["nivel"] == "CRITICO"
-    assert all(i["matricula"] != "ALU0003" for i in itens)  # outro curso
+    assert all(i["matricula"] != "ALU0003" for i in itens)
 
 
 def test_nae_ve_so_alertas_atribuidos_a_ele(cliente):
@@ -100,7 +79,6 @@ def test_ciclo_do_alerta_atribuir_agir_encerrar(cliente):
     assert detalhe.status_code == 200 and detalhe.json()["pode_gerenciar"] is True
     encerrar = {"causa": "FINANCEIRA", "desfecho": "PERMANECEU", "houve_contato": True,
                 "canal_contato": "PRESENCIAL", "acoes_executadas": "Conversa e encaminhamento ao auxilio."}
-    # CA20: sem nenhuma acao registrada, nao encerra.
     assert cliente.post(f"/api/v1/alertas/{alerta}/encerramento", headers=nae, json=encerrar).status_code in (409, 422)
     acao = cliente.post(f"/api/v1/alertas/{alerta}/acoes", headers=nae,
                         json={"tipo_acao": "CONVERSA", "descricao": "Conversa de acolhimento.", "visivel_aluno": True})
@@ -108,13 +86,11 @@ def test_ciclo_do_alerta_atribuir_agir_encerrar(cliente):
     r = cliente.post(f"/api/v1/alertas/{alerta}/encerramento", headers=nae, json=encerrar)
     assert r.status_code in (200, 201), r.text
     assert um(cliente, "SELECT situacao FROM alertas WHERE id_alerta = :a", a=alerta) == "ENCERRADO"
-    # O aluno ve o registro marcado como visivel.
     regs = cliente.get("/api/v1/aluno/acompanhamento", headers=entrar(cliente, "ALU0001")).json()["registros"]
     assert any("acolhimento" in (r.get("descricao") or "") for r in regs)
 
 
 def test_canal_de_emergencia_so_para_critico(cliente):
-    # Alerta Alto controlado para ALU0002 (o calculo deixou ALU0002 em Baixo).
     sql(cliente, "INSERT INTO alertas (id_aluno, id_score_origem, nivel, prazo_em) "
                  "SELECT 'ALU0002', id_score, 'ALTO', now() + interval '5 days' FROM vw_score_atual "
                  "WHERE id_aluno = 'ALU0002'")
@@ -129,17 +105,13 @@ def test_canal_de_emergencia_so_para_critico(cliente):
     assert um(cliente, "SELECT situacao FROM alertas WHERE id_alerta = :a", a=alto) != "ENCERRADO"
 
 
-# ---------------------------------------------------------------------------
-# Agendamento (RN14)
-# ---------------------------------------------------------------------------
-
 def _horario(dias: int) -> str:
     d = (datetime.now(FUSO) + timedelta(days=dias)).replace(hour=10, minute=0, second=0, microsecond=0)
     return d.isoformat()
 
 
 def test_intervalo_minimo_entre_atendimentos(cliente):
-    cab = entrar(cliente, "ALU0002")  # ALU0002 nao e Critico: sem excecao
+    cab = entrar(cliente, "ALU0002")
     primeiro = cliente.post("/api/v1/agendamentos", headers=cab, json={"inicio": _horario(2)})
     assert primeiro.status_code == 201, primeiro.text
     segundo = cliente.post("/api/v1/agendamentos", headers=cab, json={"inicio": _horario(5)})
@@ -155,16 +127,12 @@ def test_aluno_nao_agenda_para_outro(cliente):
     assert um(cliente, "SELECT count(*) FROM agendamentos WHERE id_aluno = 'ALU0001'") == 0 or r.status_code != 201
 
 
-# ---------------------------------------------------------------------------
-# Area do aluno (RN17)
-# ---------------------------------------------------------------------------
-
 def test_situacao_do_aluno_sem_numero_de_score(cliente):
     r = cliente.get("/api/v1/aluno/situacao", headers=entrar(cliente, "ALU0001"))
     assert r.status_code == 200
     s = r.json()
     assert "score" not in s and "evasão" not in s["mensagem"].lower()
-    assert s["situacao"] == "Acompanhamento imediato" and s["canal_imediato"]  # Critico: canal imediato
+    assert s["situacao"] == "Acompanhamento imediato" and s["canal_imediato"]
     disc = cliente.get("/api/v1/aluno/disciplinas", headers=entrar(cliente, "ALU0001")).json()
     calculo = next(d for d in disc["disciplinas"] if d["disciplina"] == "Cálculo I")
     assert calculo["va2"] == 0 and calculo["frequencia_abaixo_do_minimo"] is True
@@ -176,10 +144,6 @@ def test_aluno_contesta_fator(cliente):
     assert r.status_code == 201
     assert um(cliente, "SELECT count(*) FROM solicitacoes_titular WHERE id_aluno = 'ALU0001' AND tipo = 'CORRECAO'") >= 1
 
-
-# ---------------------------------------------------------------------------
-# Paineis (RF07, CA19)
-# ---------------------------------------------------------------------------
 
 def test_painel_da_gestao_agrega_e_suprime(cliente):
     r = cliente.get("/api/v1/paineis/visao-geral", headers=entrar(cliente, "direcao"))
@@ -202,10 +166,6 @@ def test_analises_do_painel(cliente):
     assert r.status_code == 200
     assert {"evolucao", "fatores_frequentes", "comparacao", "eficacia"} <= set(r.json())
 
-
-# ---------------------------------------------------------------------------
-# Carga de CSV (RN08: tudo ou nada)
-# ---------------------------------------------------------------------------
 
 def _enviar(cliente, tipo, conteudo: str):
     return cliente.post("/api/v1/importacoes", headers=entrar(cliente, "admin"), data={"tipo": tipo},
@@ -233,7 +193,6 @@ def test_carga_valida_e_aplicada_e_recalcula(cliente):
                                         "ALU0002;2026/2;1;0;0;8.5\n")
     corpo = r.json()
     assert corpo["situacao"] == "VALIDADA", corpo
-    # O mesmo arquivo de novo e recusado (hash SHA-256).
     assert _enviar(cliente, "INDICADORES", "id_aluno;periodo_letivo;faltas_total;atividades_pendentes;"
                                            "disciplinas_reprovadas_historico;media_semestre_anterior\n"
                                            "ALU0002;2026/2;1;0;0;8.5\n").status_code == 409
@@ -245,10 +204,6 @@ def test_carga_valida_e_aplicada_e_recalcula(cliente):
     assert um(cliente, "SELECT faltas_total FROM indicadores_academicos WHERE id_aluno = 'ALU0002'") == 1
     assert um(cliente, "SELECT situacao FROM cargas WHERE id_carga = :c", c=corpo["id_carga"]) == "APLICADA"
 
-
-# ---------------------------------------------------------------------------
-# Parametros versionados (RN22, Anexo B)
-# ---------------------------------------------------------------------------
 
 def test_admin_nao_altera_parametro_da_coordenacao(cliente):
     r = cliente.put("/api/v1/parametros/INTERVALO_ATENDIMENTOS", headers=entrar(cliente, "admin"),
@@ -262,14 +217,13 @@ def test_nota_minima_precisa_de_aprovacao_e_gera_versao(cliente):
     r = cliente.put("/api/v1/parametros/NOTA_MINIMA", headers=admin,
                     json={"valor": 6.5, "justificativa": "Teste: regimento novo pede 6,5."})
     assert r.status_code == 200 and r.json()["situacao"] == "PENDENTE"
-    assert um(cliente, "SELECT valor FROM parametros WHERE chave = 'NOTA_MINIMA'") == 6  # ainda nao vale
+    assert um(cliente, "SELECT valor FROM parametros WHERE chave = 'NOTA_MINIMA'") == 6
     proposta = r.json()["id_proposta"]
     d = cliente.post(f"/api/v1/parametros/propostas/{proposta}/decisao", headers=coord, json={"aprovar": True})
     assert d.status_code == 200 and d.json()["versao"] == versao_antes + 1
     assert float(um(cliente, "SELECT valor FROM parametros WHERE chave = 'NOTA_MINIMA'")) == 6.5
     calcular_tudo(URLS["CALCULO_DATABASE_URL"])
     assert um(cliente, "SELECT min(versao_parametros) FROM vw_score_atual") == versao_antes + 1
-    # Historico preservado: scores antigos continuam com a versao que os gerou.
     assert um(cliente, "SELECT count(*) FROM scores_risco WHERE versao_parametros = :v", v=versao_antes) > 0
 
 
@@ -278,10 +232,6 @@ def test_valor_fora_da_faixa_e_recusado(cliente):
                     json={"valor": 999, "justificativa": "Valor absurdo para testar a faixa."})
     assert r.status_code == 422
 
-
-# ---------------------------------------------------------------------------
-# Encarregado de dados
-# ---------------------------------------------------------------------------
 
 def test_encarregado_responde_pedido(cliente):
     cliente.post("/api/v1/privacidade/solicitacoes", headers=entrar(cliente, "ALU0001"),
@@ -295,10 +245,6 @@ def test_encarregado_responde_pedido(cliente):
     assert cliente.patch(f"/api/v1/privacidade/solicitacoes/{pedido}", headers=entrar(cliente, "coord.ia"),
                          json={"situacao": "NEGADA"}).status_code == 403
 
-
-# ---------------------------------------------------------------------------
-# Isolamento de servicos e diagnostico
-# ---------------------------------------------------------------------------
 
 def test_saude_responde_503_quando_o_banco_cai():
     from fastapi.testclient import TestClient

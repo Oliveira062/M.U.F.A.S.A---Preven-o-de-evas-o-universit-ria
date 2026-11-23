@@ -1,17 +1,5 @@
-"""
-Consultas das telas do painel: conta, alertas, paineis, turmas, area do
-aluno, financeiro, administracao e parametros.
-
-Mesmas regras de app/api/consultas.py: so parametros nomeados, nenhum SQL
-montado com texto do usuario, variacao so por fragmentos constantes deste
-arquivo, e cada consulta seleciona so as colunas que a tela usa.
-"""
-
 from sqlalchemy import text
 
-# ---------------------------------------------------------------------------
-# Conta e primeiro acesso
-# ---------------------------------------------------------------------------
 
 CONTA = text("""
     SELECT u.id_usuario, u.login, u.nome, u.email, u.perfil, u.id_aluno, u.id_professor, u.id_curso,
@@ -44,7 +32,6 @@ NOTIFICACOES = text("""
      LIMIT :limite OFFSET :deslocamento
 """)
 
-# So a propria notificacao: o id_usuario na condicao impede marcar a de outro.
 MARCAR_LIDA = text("""
     UPDATE notificacoes SET lida_em = :agora
      WHERE id_notificacao = :id_notificacao AND id_usuario = :id_usuario AND lida_em IS NULL
@@ -65,9 +52,6 @@ USUARIOS_ATIVOS_DO_PERFIL = text("""
        AND (CAST(:id_curso AS VARCHAR) IS NULL OR id_curso = :id_curso)
 """)
 
-# ---------------------------------------------------------------------------
-# Alertas (RN03, RF18, RF19, RF20)
-# ---------------------------------------------------------------------------
 
 _FILA_BASE = """
     SELECT a.id_alerta, a.id_aluno, al.nome_ficticio, al.semestre_atual, al.id_curso, a.tipo, a.nivel,
@@ -88,7 +72,6 @@ _FILA_BASE = """
        AND (NOT CAST(:so_vencidos AS BOOLEAN) OR (a.situacao <> 'ENCERRADO' AND a.prazo_em < :agora))
 """
 
-# Escopo do Anexo E, no SQL: quem nao pode ver o alerta nem o recebe.
 _ESCOPO_ALERTA = {
     "COORDENACAO": "AND al.id_curso = :id_curso",
     "NUCLEO_APOIO": "AND a.id_responsavel = :id_usuario",
@@ -98,8 +81,6 @@ _ESCOPO_ALERTA = {
     "FINANCEIRO": """AND a.tipo = 'PEDAGOGICO' AND s.fatores_principais @> '["financeiro"]'::jsonb""",
 }
 
-# RN03 e RF18: Critico antes de Alto; prazo mais proximo; score maior; piora
-# antes de estabilidade; empate: ha mais tempo sem contato primeiro.
 _ORDEM_FILA = """
      ORDER BY CASE a.nivel WHEN 'CRITICO' THEN 0 WHEN 'ALTO' THEN 1 WHEN 'INDETERMINADO' THEN 3 ELSE 2 END,
               a.prazo_em,
@@ -119,7 +100,6 @@ def consulta_total_fila(perfil: str):
 
 
 def consulta_alerta_no_escopo(perfil: str):
-    """Mesmo filtro da fila, para um alerta so (inclusive encerrado)."""
     return text("""
     SELECT a.id_alerta, a.id_aluno, al.nome_ficticio, al.id_curso, al.idade, a.tipo, a.nivel, a.situacao,
            a.criado_em, a.prazo_em, a.id_responsavel, u.nome AS responsavel, a.atribuido_em, a.primeira_acao_em,
@@ -177,7 +157,6 @@ SCORE_E_SOBREPOSICAO = text("""
     SELECT score, nivel, motivo_sobreposicao FROM vw_score_atual WHERE id_aluno = :id_aluno
 """)
 
-# Responsaveis possiveis: nucleo de apoio e coordenacao do curso, com a carga atual.
 RESPONSAVEIS = text("""
     SELECT u.id_usuario, u.nome, u.perfil,
            (SELECT count(*) FROM alertas a WHERE a.id_responsavel = u.id_usuario AND a.situacao <> 'ENCERRADO')
@@ -204,7 +183,6 @@ ALERTAS_DO_ALUNO = text("""
      LIMIT 50
 """)
 
-# Area do aluno: so os eventos marcados como visiveis para ele.
 EVENTOS_VISIVEIS_AO_ALUNO = text("""
     SELECT e.momento, e.tipo_acao, e.descricao
       FROM alerta_eventos e
@@ -214,9 +192,6 @@ EVENTOS_VISIVEIS_AO_ALUNO = text("""
      LIMIT 100
 """)
 
-# ---------------------------------------------------------------------------
-# Paineis (Anexo D.3). Escopo: curso da coordenacao; direcao: instituicao.
-# ---------------------------------------------------------------------------
 
 _ALUNOS_DO_RECORTE = """
       FROM alunos al
@@ -258,7 +233,6 @@ PAINEL_ALERTAS = text("""
      WHERE (CAST(:id_curso AS VARCHAR) IS NULL OR al.id_curso = :id_curso)
 """)
 
-# Em risco num instante passado: ultimo score de cada aluno ate aquele momento.
 EM_RISCO_EM = text("""
     SELECT count(*) FILTER (WHERE ult.nivel IN ('ALTO', 'CRITICO')) AS em_risco, count(ult.nivel) AS com_score
       FROM alunos al
@@ -318,7 +292,6 @@ POR_SEMESTRE = text("""
      ORDER BY al.semestre_atual
 """)
 
-# RF25: permanencia de quem teve contato contra quem nao teve, nos alertas encerrados.
 EFICACIA = text("""
     SELECT a.houve_contato, a.desfecho, count(*) AS total
       FROM alertas a
@@ -338,7 +311,6 @@ CAUSAS = text("""
      ORDER BY total DESC
 """)
 
-# RF20: marcacoes de classificacao equivocada (relatorio de qualidade do modelo).
 DIVERGENCIAS = text("""
     SELECT count(*) FROM alerta_eventos e
       JOIN alertas a ON a.id_alerta = e.id_alerta
@@ -365,9 +337,6 @@ SINAL_DO_CALCULO = text("SELECT ultimo_sinal, detalhe FROM servicos_status WHERE
 
 TAMANHO_FILA = text("SELECT count(*) FROM fila_recalculo")
 
-# ---------------------------------------------------------------------------
-# Docente: turmas
-# ---------------------------------------------------------------------------
 
 TURMAS_DO_DOCENTE = text("""
     SELECT t.id_turma, mt.nome AS materia, t.periodo_letivo, t.turno, mt.carga_horaria_h,
@@ -401,9 +370,6 @@ ALUNOS_DA_TURMA = text("""
               s.score DESC NULLS LAST, al.nome_ficticio
 """)
 
-# ---------------------------------------------------------------------------
-# Aluno: disciplinas (RF17)
-# ---------------------------------------------------------------------------
 
 DISCIPLINAS_DO_ALUNO = text("""
     SELECT t.id_turma, mt.nome AS materia, t.periodo_letivo, t.turno, mt.carga_horaria_h,
@@ -416,9 +382,6 @@ DISCIPLINAS_DO_ALUNO = text("""
      ORDER BY t.periodo_letivo DESC, mt.nome
 """)
 
-# ---------------------------------------------------------------------------
-# Financeiro (Anexo E: alunos com fator financeiro no alerta)
-# ---------------------------------------------------------------------------
 
 ALUNOS_DO_FINANCEIRO = text("""
     SELECT al.id_aluno, al.nome_ficticio, a.id_alerta, a.nivel, a.situacao, a.prazo_em, s.score,
@@ -433,9 +396,6 @@ ALUNOS_DO_FINANCEIRO = text("""
      LIMIT :limite OFFSET :deslocamento
 """)
 
-# ---------------------------------------------------------------------------
-# Calendario de retorno (RN14)
-# ---------------------------------------------------------------------------
 
 AGENDAMENTOS_DO_ALUNO = text("""
     SELECT g.id_agendamento, g.inicio, g.situacao, g.motivo_excecao, g.solicitado_em, u.nome AS solicitado_por
@@ -446,7 +406,6 @@ AGENDAMENTOS_DO_ALUNO = text("""
      LIMIT 50
 """)
 
-# Agendamento ativo mais proximo da data pedida (antes ou depois).
 AGENDAMENTO_PROXIMO = text("""
     SELECT inicio FROM agendamentos
      WHERE id_aluno = :id_aluno AND situacao <> 'CANCELADO'
@@ -479,9 +438,6 @@ MUDAR_AGENDAMENTO = text("""
     UPDATE agendamentos SET situacao = :situacao, atualizado_em = :agora WHERE id_agendamento = :id_agendamento
 """)
 
-# ---------------------------------------------------------------------------
-# Administracao tecnica (sem leitura do conteudo dos dados)
-# ---------------------------------------------------------------------------
 
 LISTAR_USUARIOS = text("""
     SELECT id_usuario, login, nome, perfil, id_curso, ativo, ultimo_login, deve_trocar_senha, demonstracao,
@@ -552,7 +508,6 @@ ENFILEIRAR_TODOS = text("""
 
 ACORDAR_CALCULO = text("SELECT pg_notify('mufasa_recalculo', '')")
 
-# Cargas de CSV (RN08, RF06)
 CARGA_COM_HASH = text("""
     SELECT id_carga, situacao FROM cargas
      WHERE hash_sha256 = :hash AND situacao IN ('VALIDADA', 'CONFIRMADA', 'APLICADA')
@@ -603,9 +558,6 @@ TURMAS_E_MATRICULAS = text("""
 
 IDS_ALUNOS = text("SELECT id_aluno FROM alunos")
 
-# ---------------------------------------------------------------------------
-# Parametros (RN22, RF23)
-# ---------------------------------------------------------------------------
 
 LISTAR_PARAMETROS = text("""
     SELECT chave, valor, minimo, maximo, unidade, editavel, descricao, atualizado_em
@@ -627,8 +579,6 @@ VERSOES = text("""
      LIMIT 50
 """)
 
-# Trava consultiva da transacao: duas alteracoes ao mesmo tempo nao geram o
-# mesmo numero de versao (e nao exige privilegio extra na tabela).
 TRAVAR_VERSOES = text("SELECT pg_advisory_xact_lock(7302201)")
 PROXIMA_VERSAO = text("SELECT COALESCE(max(versao), 0) + 1 FROM parametros_versoes")
 
@@ -668,9 +618,6 @@ DECIDIR_PROPOSTA = text("""
      WHERE id_proposta = :id_proposta
 """)
 
-# ---------------------------------------------------------------------------
-# Encarregado de dados
-# ---------------------------------------------------------------------------
 
 SOLICITACAO_POR_ID = text("SELECT id_solicitacao, situacao FROM solicitacoes_titular WHERE id_solicitacao = :id")
 

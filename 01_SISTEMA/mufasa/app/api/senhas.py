@@ -1,9 +1,6 @@
-"""Senha provisoria de primeiro acesso: aleatoria, com letras e numeros, trocada no primeiro login."""
-
 import secrets
 import string
 
-# Sem caracteres que se confundem na leitura (0/O, 1/l/I).
 _LETRAS = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ"
 _DIGITOS = "23456789"
 

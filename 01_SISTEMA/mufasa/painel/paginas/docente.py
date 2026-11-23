@@ -1,5 +1,3 @@
-"""Docente: minhas turmas (hub) e detalhe da turma - Figma Parte 5."""
-
 import html
 
 import streamlit as st

@@ -1,15 +1,3 @@
-"""
-Cliente HTTP do painel. O painel nao fala com o banco: tudo passa pela API
-(perfil, escopo e recorte aplicados no servidor) e pelo servico do chat.
-
-Isolamento de falhas:
-- tempo limite curto em toda chamada;
-- disjuntor por servico: depois de 3 falhas seguidas, o servico fica
-  "aberto" por 20 s e as telas que dependem dele mostram aviso, sem travar
-  as demais (o chat fora do ar nao derruba o painel, e vice-versa);
-- erro vira excecao com mensagem clara, tratada por secao (ver ui.secao).
-"""
-
 import os
 import threading
 import time
@@ -32,7 +20,6 @@ class ErroAPI(Exception):
     def __init__(self, status: int, mensagem: str, campos=None, pendencia=None, requisicao=None):
         super().__init__(mensagem)
         self.status, self.mensagem, self.campos, self.pendencia = status, mensagem, campos or [], pendencia
-        # Codigo da requisicao na API: o mesmo que esta no log do servidor.
         self.requisicao = requisicao
 
 
@@ -147,7 +134,6 @@ def guardar_token(t: dict):
 
 
 def _renovar_se_preciso():
-    """Sessao ativa e renovada; parada por 30 min, expira (RN12)."""
     expira = st.session_state.get("token_expira")
     if not expira or st.session_state.get("_renovando"):
         return

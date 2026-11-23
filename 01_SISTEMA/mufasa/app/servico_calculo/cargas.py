@@ -1,13 +1,3 @@
-"""
-Aplica cargas confirmadas pela administracao (RN08: uma carga nunca e
-aplicada pela metade). A API ja validou cada linha; aqui as linhas validas
-sao gravadas numa transacao so. Se qualquer uma falhar, nada e gravado e a
-carga fica como FALHOU.
-
-Gravar notas dispara os gatilhos do banco: indicadores do aluno refeitos,
-aluno na fila de recalculo, score novo e painel atualizado.
-"""
-
 import json
 from datetime import datetime, timezone
 
@@ -19,7 +9,6 @@ COMANDO_POR_TIPO = {"NOTAS": sql.APLICAR_NOTAS, "INDICADORES": sql.APLICAR_INDIC
 
 
 def aplicar_proxima_carga(engine: Engine) -> int | None:
-    """Aplica uma carga confirmada, se houver. Devolve o id da carga ou None."""
     with engine.begin() as conexao:
         carga = conexao.execute(sql.CARGA_CONFIRMADA).mappings().first()
         if carga is None:
@@ -34,7 +23,7 @@ def aplicar_proxima_carga(engine: Engine) -> int | None:
                     conexao.execute(comando, dados)
                     total += 1
             situacao, resultado = "APLICADA", f"{total} linha(s) aplicadas."
-        except Exception as exc:  # o savepoint ja desfez as linhas
+        except Exception as exc:
             situacao, resultado = "FALHOU", f"Nenhuma linha aplicada: {type(exc).__name__}."
         conexao.execute(sql.FINALIZAR_CARGA, {"id_carga": id_carga, "situacao": situacao, "resultado": resultado,
                                               "agora": datetime.now(timezone.utc)})

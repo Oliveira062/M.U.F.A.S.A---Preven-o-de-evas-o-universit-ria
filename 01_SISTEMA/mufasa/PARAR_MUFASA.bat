@@ -1,7 +1,6 @@
 @echo off
 chcp 65001 >nul
 title MUFASA - parar
-REM Desliga o MUFASA. Os dados do banco ficam guardados para a proxima vez.
 cd /d "%~dp0"
 
 echo.

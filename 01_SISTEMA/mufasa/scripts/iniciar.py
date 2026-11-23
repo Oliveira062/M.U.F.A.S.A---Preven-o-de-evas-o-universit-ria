@@ -1,22 +1,3 @@
-"""
-Sobe o MUFASA inteiro na maquina local, cada parte em um processo separado.
-
-    python -m scripts.iniciar                # API, chat, calculo e painel
-    python -m scripts.iniciar --sem-chat     # sem o assistente
-    python -m scripts.iniciar --so api,painel
-
-Partes e enderecos:
-    api      http://127.0.0.1:8000   (documentacao em /docs fora de producao)
-    chat     http://127.0.0.1:8001
-    calculo  servico sem porta (recalcula scores e alertas)
-    painel   http://127.0.0.1:8501   (abra este no navegador)
-
-Isolamento: se uma parte cair, so ela e reiniciada (espera crescente de 2 s
-ate 60 s); as outras continuam no ar. Saidas de cada parte ficam em
-logs/<parte>.console.log, e os registros estruturados em logs/<parte>.log.
-Ctrl+C encerra tudo.
-"""
-
 import argparse
 import os
 import subprocess
@@ -58,7 +39,7 @@ class Parte:
     def conferir(self):
         if self.proc is None or self.proc.poll() is None:
             if self.proc and time.monotonic() - self.iniciada_em > 120:
-                self.espera = 2.0  # estavel por 2 min: zera a espera
+                self.espera = 2.0
             return
         agora = time.monotonic()
         if self.proxima_tentativa == 0.0:

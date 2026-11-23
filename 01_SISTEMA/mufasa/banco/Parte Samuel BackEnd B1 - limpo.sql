@@ -1,16 +1,4 @@
--- Copia do dump do B1 (Samuel) SEM as 2.000 linhas de sobra de importacao em matriculas
--- (sem id_matricula, sem id_aluno, turma inexistente). Limpeza aprovada pelo Joao em 28/10/2026.
--- Nenhuma outra linha foi alterada. O original continua em originais/B1-banco-samuel/.
---
--- PostgreSQL database dump
---
-
 \restrict ZQ4gFzwVffDWmS8gylf1GFMpyqbPefQVkBsYJIEpmeavYsOpNohTvwzLS5gRDnU
-
--- Dumped from database version 16.15
--- Dumped by pg_dump version 16.15
-
--- Started on 2026-10-26 23:17:04
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -27,11 +15,6 @@ SET default_tablespace = '';
 
 SET default_table_access_method = heap;
 
---
--- TOC entry 220 (class 1259 OID 16684)
--- Name: alunos; Type: TABLE; Schema: public; Owner: postgres
---
-
 CREATE TABLE public.alunos (
     id_aluno character varying(255),
     nome_ficticio character varying(255),
@@ -44,13 +27,7 @@ CREATE TABLE public.alunos (
     necessidade_acessibilidade character varying(255)
 );
 
-
 ALTER TABLE public.alunos OWNER TO postgres;
-
---
--- TOC entry 223 (class 1259 OID 16699)
--- Name: avaliacoes_risco; Type: TABLE; Schema: public; Owner: postgres
---
 
 CREATE TABLE public.avaliacoes_risco (
     id_avaliacao character varying(255),
@@ -62,13 +39,7 @@ CREATE TABLE public.avaliacoes_risco (
     nivel_risco character varying(255)
 );
 
-
 ALTER TABLE public.avaliacoes_risco OWNER TO postgres;
-
---
--- TOC entry 216 (class 1259 OID 16664)
--- Name: cursos; Type: TABLE; Schema: public; Owner: postgres
---
 
 CREATE TABLE public.cursos (
     id_curso character varying(255),
@@ -80,13 +51,7 @@ CREATE TABLE public.cursos (
     frequencia_minima_pct integer
 );
 
-
 ALTER TABLE public.cursos OWNER TO postgres;
-
---
--- TOC entry 222 (class 1259 OID 16694)
--- Name: indicadores_academicos; Type: TABLE; Schema: public; Owner: postgres
---
 
 CREATE TABLE public.indicadores_academicos (
     id_aluno character varying(255),
@@ -100,13 +65,7 @@ CREATE TABLE public.indicadores_academicos (
     tendencia_media numeric
 );
 
-
 ALTER TABLE public.indicadores_academicos OWNER TO postgres;
-
---
--- TOC entry 218 (class 1259 OID 16674)
--- Name: materias; Type: TABLE; Schema: public; Owner: postgres
---
 
 CREATE TABLE public.materias (
     id_materia character varying(255),
@@ -118,13 +77,7 @@ CREATE TABLE public.materias (
     frequencia_minima_pct integer
 );
 
-
 ALTER TABLE public.materias OWNER TO postgres;
-
---
--- TOC entry 224 (class 1259 OID 16704)
--- Name: matriculas; Type: TABLE; Schema: public; Owner: postgres
---
 
 CREATE TABLE public.matriculas (
     id_matricula character varying(255),
@@ -138,13 +91,7 @@ CREATE TABLE public.matriculas (
     va3 numeric
 );
 
-
 ALTER TABLE public.matriculas OWNER TO postgres;
-
---
--- TOC entry 217 (class 1259 OID 16669)
--- Name: professores; Type: TABLE; Schema: public; Owner: postgres
---
 
 CREATE TABLE public.professores (
     id_professor character varying(255),
@@ -156,13 +103,7 @@ CREATE TABLE public.professores (
     data_admissao character varying(255)
 );
 
-
 ALTER TABLE public.professores OWNER TO postgres;
-
---
--- TOC entry 225 (class 1259 OID 16709)
--- Name: regras_risco; Type: TABLE; Schema: public; Owner: postgres
---
 
 CREATE TABLE public.regras_risco (
     id_regra character varying(255),
@@ -172,13 +113,7 @@ CREATE TABLE public.regras_risco (
     interpretacao character varying(255)
 );
 
-
 ALTER TABLE public.regras_risco OWNER TO postgres;
-
---
--- TOC entry 221 (class 1259 OID 16689)
--- Name: socioeconomico; Type: TABLE; Schema: public; Owner: postgres
---
 
 CREATE TABLE public.socioeconomico (
     id_aluno character varying(255),
@@ -198,13 +133,7 @@ CREATE TABLE public.socioeconomico (
     desconto_funcionario character varying(255)
 );
 
-
 ALTER TABLE public.socioeconomico OWNER TO postgres;
-
---
--- TOC entry 219 (class 1259 OID 16679)
--- Name: turmas; Type: TABLE; Schema: public; Owner: postgres
---
 
 CREATE TABLE public.turmas (
     id_turma character varying(255),
@@ -215,13 +144,7 @@ CREATE TABLE public.turmas (
     turno character varying(255)
 );
 
-
 ALTER TABLE public.turmas OWNER TO postgres;
-
---
--- TOC entry 215 (class 1259 OID 16659)
--- Name: universidades; Type: TABLE; Schema: public; Owner: postgres
---
 
 CREATE TABLE public.universidades (
     id_universidade character varying(255),
@@ -230,14 +153,7 @@ CREATE TABLE public.universidades (
     uf character varying(255)
 );
 
-
 ALTER TABLE public.universidades OWNER TO postgres;
-
---
--- TOC entry 4922 (class 0 OID 16684)
--- Dependencies: 220
--- Data for Name: alunos; Type: TABLE DATA; Schema: public; Owner: postgres
---
 
 COPY public.alunos (id_aluno, nome_ficticio, id_curso, semestre_atual, idade, bairro, tipo_ensino_medio, apoio_psicossocial_solicitado, necessidade_acessibilidade) FROM stdin;
 ALU0001	Julia Araújo Silva	CUR01	2	23	Recanto do Sol	Regular presencial	Não	Não
@@ -1242,13 +1158,6 @@ ALU0999	Pedro Souza Barbosa	CUR01	8	17	Jardim Alexandrina	Regular presencial	Nã
 ALU1000	Lucas Lima Ferreira	CUR01	1	21	Jundiaí	Regular presencial	Não	Não
 \.
 
-
---
--- TOC entry 4925 (class 0 OID 16699)
--- Dependencies: 223
--- Data for Name: avaliacoes_risco; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
 COPY public.avaliacoes_risco (id_avaliacao, id_aluno, periodo_letivo, tipo, data_avaliacao, risco_evasao_pct, nivel_risco) FROM stdin;
 AVR0001	ALU0001	2026/2	Inicial	2026-08-17	26.1	Moderado
 AVR0002	ALU0002	2026/2	Inicial	2026-08-17	73.3	Crítico
@@ -2252,23 +2161,9 @@ AVR0999	ALU0999	2026/2	Inicial	2026-08-17	28.9	Moderado
 AVR1000	ALU1000	2026/2	Inicial	2026-08-17	14.5	Baixo
 \.
 
-
---
--- TOC entry 4918 (class 0 OID 16664)
--- Dependencies: 216
--- Data for Name: cursos; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
 COPY public.cursos (id_curso, id_universidade, nome, grau, duracao_semestres, media_aprovacao, frequencia_minima_pct) FROM stdin;
 CUR01	UNI01	Inteligência Artificial	Bacharelado	8	6	75
 \.
-
-
---
--- TOC entry 4924 (class 0 OID 16694)
--- Dependencies: 222
--- Data for Name: indicadores_academicos; Type: TABLE DATA; Schema: public; Owner: postgres
---
 
 COPY public.indicadores_academicos (id_aluno, periodo_letivo, faltas_total, frequencia_pct, disciplinas_reprovadas_historico, atividades_pendentes, media_semestre_anterior, media_atual, tendencia_media) FROM stdin;
 ALU0001	2026/2	5	72	0	2	6.9	7.7	0.8
@@ -3273,13 +3168,6 @@ ALU0999	2026/2	0	100	0	1	8.3	7.5	-0.8
 ALU1000	2026/2	2	87	1	1	5.7	6.6	0.9
 \.
 
-
---
--- TOC entry 4920 (class 0 OID 16674)
--- Dependencies: 218
--- Data for Name: materias; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
 COPY public.materias (id_materia, id_curso, nome, semestre_grade, carga_horaria_h, media_aprovacao, frequencia_minima_pct) FROM stdin;
 IA101	CUR01	Lógica de Programação	1	60	6	75
 IA102	CUR01	Algoritmos e Programação I	1	80	6	75
@@ -3330,13 +3218,6 @@ IA804	CUR01	Interação Humano-IA	8	60	6	75
 IA805	CUR01	Gestão de Projetos de IA	8	60	6	75
 IA806	CUR01	Estágio Supervisionado	8	120	6	75
 \.
-
-
---
--- TOC entry 4926 (class 0 OID 16704)
--- Dependencies: 224
--- Data for Name: matriculas; Type: TABLE DATA; Schema: public; Owner: postgres
---
 
 COPY public.matriculas (id_matricula, id_aluno, id_turma, nota_final, frequencia_pct, situacao, va1, va2, va3) FROM stdin;
 MAT01557	ALU0260	IA803-B	74.67	77	Aprovado	77	66	81
@@ -9341,13 +9222,6 @@ MAT05988	ALU0998	IA706-B	27.33	76	Reprovado	45	10	27
 MAT05977	ALU0997	IA201-A	42.00	92	Reprovado	28	41	57
 \.
 
-
---
--- TOC entry 4919 (class 0 OID 16669)
--- Dependencies: 217
--- Data for Name: professores; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
 COPY public.professores (id_professor, nome, titulacao, area_atuacao, regime_trabalho, email_institucional, data_admissao) FROM stdin;
 PROF001	Ricardo Almeida Prado	Especialização	Programação	Integral	ricardo.prado@docente.uma.example	2008-08-01
 PROF002	Fernanda Lopes Teixeira	Doutorado	Programação	Integral	fernanda.teixeira@docente.uma.example	2012-02-01
@@ -9375,13 +9249,6 @@ PROF023	Beatriz Fontes Amaral	Doutorado	Humanidades e Gestão	Horista	beatriz.am
 PROF024	Fábio Torres Medeiros	Doutorado	Humanidades e Gestão	Integral	fabio.medeiros@docente.uma.example	2016-08-01
 \.
 
-
---
--- TOC entry 4927 (class 0 OID 16709)
--- Dependencies: 225
--- Data for Name: regras_risco; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
 COPY public.regras_risco (id_regra, regra, condicao, pontuacao, interpretacao) FROM stdin;
 REG01	nota_baixa	media_atual < 6	15	Indicador acadêmico crítico
 REG02	frequencia_baixa	frequencia_pct < 75	15	Risco de reprovação/falta de vínculo
@@ -9395,13 +9262,6 @@ REG09	responsabilidades	responsabilidades_familiares_h_semana >= 12	6	Carga fami
 REG10	apoio	apoio_psicossocial_solicitado = Sim	4	Sinal de necessidade de acolhimento; não é diagnóstico
 REG11	faixas	0-19 baixo; 20-34 moderado; 35-54 alto; 55+ crítico	-	Triagem individual; não sentença de evasão
 \.
-
-
---
--- TOC entry 4923 (class 0 OID 16689)
--- Dependencies: 221
--- Data for Name: socioeconomico; Type: TABLE DATA; Schema: public; Owner: postgres
---
 
 COPY public.socioeconomico (id_aluno, renda_familiar_mensal, moradores_domicilio, renda_per_capita, auxilio_bolsa, trabalha, horas_trabalho_dia, horas_estudo_semana, responsabilidades_familiares_h_semana, distancia_km, tempo_deslocamento_min, meio_transporte, prouni, fies, desconto_funcionario) FROM stdin;
 ALU0268	2975	5	595.0	sim	Tempo integral	8	2.2	0	11.7	65	Carro	sim	não	não
@@ -10406,13 +10266,6 @@ ALU0202	6648	1	6648.0	não	Tempo integral	8	13.7	0	10.6	63	Ônibus	não	não	nã
 ALU0889	2590	4	647.5	não	Não trabalha	0	7.3	8	19.0	80	Ônibus	não	não	não
 \.
 
-
---
--- TOC entry 4921 (class 0 OID 16679)
--- Dependencies: 219
--- Data for Name: turmas; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
 COPY public.turmas (id_turma, id_materia, id_professor, periodo_letivo, turma, turno) FROM stdin;
 IA101-A	IA101	PROF001	2026/2	A	Matutino
 IA101-B	IA101	PROF002	2026/2	B	Noturno
@@ -10512,23 +10365,9 @@ IA806-A	IA806	PROF023	2026/2	A	Matutino
 IA806-B	IA806	PROF024	2026/2	B	Noturno
 \.
 
-
---
--- TOC entry 4917 (class 0 OID 16659)
--- Dependencies: 215
--- Data for Name: universidades; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
 COPY public.universidades (id_universidade, nome, cidade, uf) FROM stdin;
 UNI01	Universidade Modelo de Anápolis	Anápolis	GO
 \.
-
-
--- Completed on 2026-10-26 23:17:05
-
---
--- PostgreSQL database dump complete
---
 
 \unrestrict ZQ4gFzwVffDWmS8gylf1GFMpyqbPefQVkBsYJIEpmeavYsOpNohTvwzLS5gRDnU
 

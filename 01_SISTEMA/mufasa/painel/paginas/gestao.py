@@ -1,9 +1,3 @@
-"""
-Gestao / direcao: painel institucional (o painel de Gestao do app.py do F1,
-agora ligado a API). So agregados: nenhum nome nem matricula, e grupo com
-menos de 5 alunos suprimido no servidor (RN07, CA19).
-"""
-
 import streamlit as st
 
 import cliente

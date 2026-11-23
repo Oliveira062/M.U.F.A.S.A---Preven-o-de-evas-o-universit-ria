@@ -1,16 +1,3 @@
-"""
-Fila de alertas e acompanhamento (RN03, RN05, RN19, RF16, RF18, RF19, RF20).
-
-Quem faz o que (Anexo E, "Alertas e acoes"):
-- Coordenacao: gerencia os alertas do curso (atribui, registra, encerra).
-- Nucleo de apoio: gerencia os alertas atribuidos a ele.
-- Docente: registra acao e marca divergencia nos alertas dos seus alunos.
-- Financeiro: registra acao nos alertas com fator financeiro.
-
-O alerta nasce no servico de calculo. Aqui so ha decisao humana: nada e
-executado sem um responsavel identificado (RN05).
-"""
-
 from enum import Enum
 from typing import Annotated
 
@@ -128,7 +115,6 @@ def _parametros_escopo(usuario: Usuario) -> dict:
 
 
 def obter_alerta(conexao: Connection, request: Request, usuario: Usuario, id_alerta: int, operacao: str):
-    """Barra (e registra) alerta fora do escopo, com a mesma mensagem de inexistente."""
     linha = conexao.execute(sqlp.consulta_alerta_no_escopo(usuario.perfil),
                             {"id_alerta": id_alerta, **_parametros_escopo(usuario)}).mappings().first()
     if linha is None:
@@ -153,7 +139,6 @@ def fila_de_alertas(request: Request,
                     pagina: Annotated[int, Query(ge=1, le=10_000)] = 1,
                     usuario: Usuario = Depends(exigir_perfis(*REGISTRAM)),
                     conexao: Connection = Depends(obter_conexao)):
-    """Fila priorizada: Critico antes de Alto, prazo, score, tendencia e tempo sem contato (RN03, RF18)."""
     momento = agora()
     filtros = {"situacao": situacao.value if situacao else None, "tipo": tipo.value if tipo else None,
                "nivel": nivel.value if nivel else None, "responsavel": responsavel,
@@ -177,7 +162,6 @@ def fila_de_alertas(request: Request,
 
 @router_alertas.get("/responsaveis")
 def responsaveis(usuario: Usuario = Depends(exigir_perfis(COORDENACAO)), conexao: Connection = Depends(obter_conexao)):
-    """Quem pode receber alertas do curso, com a carga atual e o teto (Anexo B)."""
     teto = int(parametros_vigentes(conexao)["TETO_ALERTAS_RESPONSAVEL"])
     linhas = conexao.execute(sqlp.RESPONSAVEIS, {"id_curso": usuario.id_curso}).mappings().all()
     return [{"id_usuario": l["id_usuario"], "nome": l["nome"], "perfil": l["perfil"],
@@ -186,7 +170,6 @@ def responsaveis(usuario: Usuario = Depends(exigir_perfis(COORDENACAO)), conexao
 
 
 def evento_visivel(usuario: Usuario, evento) -> dict:
-    """Descricao livre pode citar saude ou renda: so o autor e o nucleo leem tudo."""
     descricao = evento["descricao"]
     proprio = evento["id_usuario"] == usuario.id_usuario
     if usuario.perfil == NUCLEO_APOIO or proprio or evento["id_usuario"] is None:
@@ -207,7 +190,7 @@ def detalhe_do_alerta(id_alerta: Annotated[int, Path(ge=1)], request: Request,
     alerta = obter_alerta(conexao, request, usuario, id_alerta, "LER_ALERTA")
     eventos = conexao.execute(sqlp.EVENTOS_DO_ALERTA, {"id_alerta": id_alerta}).mappings().all()
     momento = agora()
-    conexao.rollback()  # libera a trava de leitura
+    conexao.rollback()
     gerencia = usuario.perfil == COORDENACAO or (usuario.perfil == NUCLEO_APOIO
                                                  and alerta["id_responsavel"] == usuario.id_usuario)
     return {
@@ -235,7 +218,6 @@ def detalhe_do_alerta(id_alerta: Annotated[int, Path(ge=1)], request: Request,
 def mudar_alerta(id_alerta: Annotated[int, Path(ge=1)], pedido: PedidoMudanca, request: Request,
                  usuario: Usuario = Depends(exigir_perfis(*GERENCIAM)),
                  conexao: Connection = Depends(obter_conexao)):
-    """Atribui (coordenacao) ou assume o atendimento (coordenacao e nucleo)."""
     alerta = obter_alerta(conexao, request, usuario, id_alerta, "MUDAR_ALERTA")
     if alerta["situacao"] == "ENCERRADO":
         raise erro_http(409, "Este alerta já foi encerrado.")
@@ -277,7 +259,6 @@ def mudar_alerta(id_alerta: Annotated[int, Path(ge=1)], pedido: PedidoMudanca, r
 def registrar_acao(id_alerta: Annotated[int, Path(ge=1)], pedido: PedidoAcao, request: Request,
                    usuario: Usuario = Depends(exigir_perfis(*REGISTRAM)),
                    conexao: Connection = Depends(obter_conexao)):
-    """Registro de acao executada, com autor e data (RN05, RF16)."""
     alerta = obter_alerta(conexao, request, usuario, id_alerta, "REGISTRAR_ACAO")
     if alerta["situacao"] == "ENCERRADO":
         raise erro_http(409, "Este alerta já foi encerrado.")
@@ -289,7 +270,6 @@ def registrar_acao(id_alerta: Annotated[int, Path(ge=1)], pedido: PedidoAcao, re
     conexao.execute(sqlp.PRIMEIRA_ACAO, {"agora": momento, "id_alerta": id_alerta})
     if pedido.tipo_acao in (TipoAcao.ENCAMINHAMENTO_NAE, TipoAcao.ENCAMINHAMENTO_FINANCEIRO):
         perfil_destino = NUCLEO_APOIO if pedido.tipo_acao == TipoAcao.ENCAMINHAMENTO_NAE else FINANCEIRO
-        # O nucleo so ve alerta atribuido: o encaminhamento avisa a coordenacao, que atribui.
         destinos = (usuarios_do_perfil(conexao, COORDENACAO, alerta["id_curso"]) if perfil_destino == NUCLEO_APOIO
                     else usuarios_do_perfil(conexao, FINANCEIRO))
         notificar(conexao, [d for d in destinos if d != usuario.id_usuario], "ALERTA_ATRIBUIDO",
@@ -304,7 +284,6 @@ def registrar_acao(id_alerta: Annotated[int, Path(ge=1)], pedido: PedidoAcao, re
 def encerrar_alerta(id_alerta: Annotated[int, Path(ge=1)], pedido: PedidoEncerramento, request: Request,
                     usuario: Usuario = Depends(exigir_perfis(*GERENCIAM)),
                     conexao: Connection = Depends(obter_conexao)):
-    """Encerramento com causa, desfecho e acoes (CA20, RF19). Sem esses campos, nao fecha."""
     alerta = obter_alerta(conexao, request, usuario, id_alerta, "ENCERRAR_ALERTA")
     if alerta["situacao"] == "ENCERRADO":
         raise erro_http(409, "Este alerta já foi encerrado.")
@@ -317,7 +296,6 @@ def encerrar_alerta(id_alerta: Annotated[int, Path(ge=1)], pedido: PedidoEncerra
 
     score = conexao.execute(sqlp.SCORE_E_SOBREPOSICAO, {"id_aluno": alerta["id_aluno"]}).mappings().first()
     if pedido.canal_contato == Canal.EMERGENCIA_RN19:
-        # RN19: so em nivel Critico por ausencia total de 15 dias (sobreposicao S2).
         motivo = (score or {}).get("motivo_sobreposicao") or ""
         if alerta["nivel"] != "CRITICO" or "S2" not in motivo:
             raise erro_http(422, "O contato de emergência (RN19) só vale para Crítico por 15 dias sem presença.")
@@ -345,7 +323,6 @@ def encerrar_alerta(id_alerta: Annotated[int, Path(ge=1)], pedido: PedidoEncerra
 def marcar_divergencia(id_alerta: Annotated[int, Path(ge=1)], pedido: PedidoDivergencia, request: Request,
                        usuario: Usuario = Depends(exigir_perfis(DOCENTE, COORDENACAO)),
                        conexao: Connection = Depends(obter_conexao)):
-    """Classificacao equivocada, com justificativa (RF20, Anexo A.8): entra no relatorio de qualidade."""
     alerta = obter_alerta(conexao, request, usuario, id_alerta, "MARCAR_DIVERGENCIA")
     conexao.execute(sqlp.REGISTRAR_EVENTO, {"id_alerta": id_alerta, "agora": agora(),
                                             "id_usuario": usuario.id_usuario, "tipo": "DIVERGENCIA",

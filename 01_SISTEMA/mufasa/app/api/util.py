@@ -1,5 +1,3 @@
-"""Conversoes pequenas usadas por todas as rotas."""
-
 import json
 from datetime import date, datetime, timezone
 from decimal import Decimal
@@ -43,7 +41,6 @@ def linha_json(linha) -> dict | None:
 
 
 def lista_json(valor) -> list:
-    """Coluna JSONB chega como lista (PostgreSQL) ou texto (SQLite dos testes)."""
     if not valor:
         return []
     return json.loads(valor) if isinstance(valor, str) else list(valor)

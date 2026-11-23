@@ -1,13 +1,3 @@
-"""
-Testes do calculo do score (SRS v1.1, Anexo A; Plano de Construcao v1.1, Secao 4.1).
-
-PRINCIPIO: um teste precisa poder REPROVAR. Todo teste exige valor exato ou
-relacao de ordem verificavel. Os casos CT-01 a CT-21 sao os do Plano de
-Construcao; os que dependem de banco ou de tela (CT-18, CT-19, CT-21) estao
-em testes/teste_ponta_a_ponta.py. CT-20 (agendamento) depende do modulo de
-calendario de retorno, que ainda nao existe.
-"""
-
 import pytest
 
 from app.calculo.indicadores import (
@@ -38,10 +28,6 @@ from app.calculo.score import (
 )
 
 
-# ---------------------------------------------------------------------------
-# Indicadores
-# ---------------------------------------------------------------------------
-
 def test_faltas_restantes():
     assert calcular_faltas_restantes(80, 12) == 8
     assert calcular_faltas_restantes(80, 25) == 0
@@ -50,7 +36,6 @@ def test_faltas_restantes():
 
 
 def test_faltas_restantes_nunca_negativo():
-    """Limite estourado devolve 0, nao numero negativo."""
     assert calcular_faltas_restantes(80, 50) == 0
 
 
@@ -61,13 +46,6 @@ def test_frequencia():
 
 
 def test_frequencia_sem_aula_lancada_retorna_none():
-    """
-    Ausencia de lancamento NAO e frequencia perfeita.
-
-    Este e o erro que o SRS proibe explicitamente: imputar 100% a
-    frequencia ausente transforma o maior sinal de abandono em sinal
-    de normalidade.
-    """
     assert calcular_percentual_frequencia(0, 0) is None
     assert calcular_percentual_frequencia(None, 5) is None
     assert calcular_percentual_frequencia(80, None) is None
@@ -83,21 +61,15 @@ def test_media_ponderada_sem_nota_retorna_none():
     assert calcular_media_ponderada([(7.0, 0.0)]) is None
 
 
-def test_taxa_reprovacao():  # fracao 0-1; o score recebe em % (x 100)
+def test_taxa_reprovacao():
     assert calcular_taxa_reprovacao(6, 2) == 0.333
     assert calcular_taxa_reprovacao(10, 0) == 0.0
 
 
 def test_taxa_reprovacao_sem_historico_retorna_none():
-    """Aluno ingressante nao tem taxa 0: nao tem taxa."""
     assert calcular_taxa_reprovacao(0, 0) is None
     assert calcular_taxa_reprovacao(None, 0) is None
 
-
-
-# ---------------------------------------------------------------------------
-# Faixas (RN02, CA09)
-# ---------------------------------------------------------------------------
 
 def test_faixas_nos_limites_exatos_ca09():
     assert [classificar_nivel_risco(s) for s in (0, 25, 26, 50, 51, 75, 76, 100)] == [
@@ -109,15 +81,10 @@ def test_score_vazio_e_indeterminado():
 
 
 def test_valor_interno_063_vira_63_alto():
-    """RN02: score = arredondar(valor x 100); 0,63 sempre exibe 63 e nivel Alto."""
     assert arredondar(0.63 * 100) == 63
     assert classificar_nivel_risco(63) == "ALTO"
-    assert arredondar(62.5) == 63  # meio sobe, sem o arredondamento bancario do Python
+    assert arredondar(62.5) == 63
 
-
-# ---------------------------------------------------------------------------
-# Indicadores I1 a I11 (B.2) e casos CT-02 a CT-12
-# ---------------------------------------------------------------------------
 
 @pytest.mark.parametrize("media,esperado", [(7.0, 20.0), (5.0, 60.0), (3.0, 85.0), (8.0, 0.0), (10.0, 0.0),
                                             (6.0, 40.0), (4.0, 80.0), (0.0, 100.0)])
@@ -126,7 +93,6 @@ def test_ct02_a_ct04_i1(media, esperado):
 
 
 def test_rf02_media_ponderada_pela_carga_horaria():
-    """RF02: nota 7,0 (60 h) e 5,0 (30 h) -> media 6,33 e I1 = 33,3."""
     media = calcular_media_ponderada([(7.0, 60), (5.0, 30)])
     assert media == pytest.approx(6.333, abs=0.001)
     assert risco_por_nota(media) == pytest.approx(33.3, abs=0.1)
@@ -148,7 +114,6 @@ def test_ct06_frequencia_68_forca_alto_por_s1():
 
 
 def test_s1_vale_para_qualquer_disciplina_ca11():
-    """CA11: uma disciplina abaixo de 75% basta, mesmo com a frequencia geral alta."""
     r = calcular_score_aluno({"media_ponderada": 9.0, "percentual_frequencia": 88.0, "taxa_reprovacao_pct": 0,
                               "renda_per_capita_sm": 3.0, "horas_trabalho_semana": 0, "minutos_deslocamento": 10,
                               "disciplinas": [{"nome": "Cálculo I", "frequencia_pct": 70},
@@ -176,7 +141,6 @@ def test_ct07_i3_com_pre_requisito():
 
 
 def test_i3_sem_disciplinas_cursadas_fica_ausente():
-    """Primeiro periodo: sem divisao por zero e sem inventar taxa 0 (RN20)."""
     assert calcular_taxa_reprovacao(0, 0) is None
     assert risco_por_reprovacao(None) is None
 
@@ -238,7 +202,7 @@ def test_i9_i10_i11():
 
 
 def test_i4_engajamento():
-    assert risco_por_engajamento_ava() is None  # sem integracao com o AVA, fator ausente
+    assert risco_por_engajamento_ava() is None
     assert risco_por_engajamento_ava(0.8, 0.95) == 0
     assert risco_por_engajamento_ava(0.5, 0.95) == 35
     assert risco_por_engajamento_ava(0.2, 0.95) == 65
@@ -254,16 +218,11 @@ def test_valor_invalido_vira_ausente(funcao):
 
 
 def test_monotonicidade():
-    """B.2: piorar um fator nunca reduz a pontuacao."""
     notas = [risco_por_nota(m / 10) for m in range(0, 101)]
     assert all(a >= b for a, b in zip(notas, notas[1:]))
     freqs = [risco_por_frequencia(f) for f in range(0, 101)]
     assert all(a >= b for a, b in zip(freqs, freqs[1:]))
 
-
-# ---------------------------------------------------------------------------
-# Soma ponderada, completude, modificadores e sobreposicoes (B.4 a B.6)
-# ---------------------------------------------------------------------------
 
 def test_pesos_do_srs_somam_um():
     esperados = {"notas": .20, "frequencia": .18, "reprovacao": .09, "engajamento_ava": .08, "financeiro": .11,
@@ -394,7 +353,6 @@ def test_explicacao_resumo():
 
 
 def test_nenhum_limiar_fora_dos_parametros():
-    """RN22 / Anexo B: cada parametro da tabela C.2 existe no catalogo versionado."""
     for chave in ("NOTA_MINIMA", "NOTA_CONFORTAVEL", "NOTA_CRITICA", "FREQUENCIA_MINIMA", "FREQUENCIA_CONFORTAVEL",
                   "FREQUENCIA_CRITICA", "RENDA_VULNERAVEL", "RENDA_AUXILIO", "JORNADA_LIMITE", "DESLOCAMENTO_LIMITE",
                   "AVA_DIAS_SEM_ACESSO", "CORTE_BAIXO", "CORTE_MODERADO", "CORTE_ALTO", "COMPLETUDE_MINIMA",

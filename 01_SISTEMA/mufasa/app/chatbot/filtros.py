@@ -1,28 +1,8 @@
-"""
-Buscas da equipe com filtros combinados (pedido do João, 28/10/2026).
-
-Exemplos que o leitor entende:
-    "alunos que moram a mais de 20 km com frequência abaixo de 70%"
-    "alunos com frequência próxima de 60% e média abaixo de 5"
-    "quem tem mais de 3 atividades pendentes no 2º semestre"
-    "alunos em risco alto com média entre 4 e 6"
-
-Como e seguro:
-- O texto vira uma lista de Filtro(campo, operador, valores). Campo e
-  operador so podem ser os da lista abaixo (CAMPOS, OPERADORES).
-- O SQL e montado em consultas_chat.montar_busca so com pedacos fixos do
-  codigo; os numeros entram como parametros. Nenhum texto do usuario entra
-  no SQL.
-- Valor fora da escala do campo (frequencia 150%, media 12) e descartado e
-  a resposta avisa.
-"""
-
 import re
 from dataclasses import dataclass
 
 from app.chatbot.texto import sem_acentos
 
-# campo -> (descricao na resposta, unidade, margem para "proximo de", minimo, maximo)
 CAMPOS = {
     "frequencia": ("frequência", "%", 5, 0, 100),
     "media": ("média", "", 0.5, 0, 10),
@@ -42,7 +22,7 @@ class Filtro:
     valor: float
     valor2: float | None = None
     aproximado: bool = False
-    centro: float | None = None  # o valor citado em "proximo de X"
+    centro: float | None = None
 
 
 @dataclass
@@ -57,7 +37,6 @@ class Busca:
         return not self.filtros and not self.niveis and not self.media_caiu
 
 
-# Palavras que indicam o campo (texto ja sem acento e minusculo).
 _CAMPO_POR_PALAVRA = (
     ("distancia", r"distancia|moram?|morando|reside\w*|longe|perto da (?:universidade|faculdade)|desloca\w*|km\b|quilometro"),
     ("frequencia", r"frequencia|presenca"),
@@ -78,7 +57,6 @@ _NUMERO = re.compile(
     r"(?P<entre>entre\s+)?(?P<n1>\d+(?:[.,]\d+)?)(?:\s*(?:o|a|º|ª)\b)?"
     r"(?:\s*(?:%|km|quilometros?))?(?(entre)\s*(?:e|a)\s*(?P<n2>\d+(?:[.,]\d+)?))"
     r"\s*(?P<un>%|km\b|quilometros?|faltas?|atividades?|pendencias?|tarefas?|semestres?|periodos?)?")
-# "2o semestre", "3 periodo", "do 5"
 _ORDINAL_SEMESTRE = re.compile(r"\b(\d{1,2})\s*(?:o|a|º|ª)?\s+(?:semestre|periodo)")
 
 
@@ -94,7 +72,6 @@ def _numero(v: str) -> float:
 
 
 def _ultimo(padroes, trecho: str):
-    """O padrao que aparece mais perto do fim do trecho (o mais proximo do numero)."""
     melhor, pos = None, -1
     for nome, padrao in padroes:
         for m in re.finditer(r"(?:^|\b|\s)(?:" + padrao + r")(?:\b|\s|$)", trecho):
@@ -166,7 +143,6 @@ def interpretar(texto: str) -> Busca:
 
 
 def parece_busca(texto: str) -> bool:
-    """A pergunta pede uma lista filtrada? (numero ligado a um campo, nivel + campo, media em queda)"""
     b = interpretar(texto)
     return bool(b.filtros or b.media_caiu or b.descartados)
 

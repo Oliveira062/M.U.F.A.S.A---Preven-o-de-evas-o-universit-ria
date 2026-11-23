@@ -1,5 +1,3 @@
-"""Setor financeiro: alunos com fator financeiro no alerta (Anexo E)."""
-
 import html
 
 import streamlit as st

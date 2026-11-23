@@ -1,11 +1,3 @@
-"""
-Testes do B3 (SRS: CA04, CA08, CA14, CA19, RN07, RN12, RN17, Secao 3.3) no
-PostgreSQL de teste (ver conftest.py): mesma estrutura da producao, dados
-controlados, e a API conectada com o perfil restrito mufasa_api.
-
-    pytest testes/teste_api.py -v
-"""
-
 from datetime import datetime, timedelta, timezone
 
 import jwt
@@ -19,10 +11,6 @@ from testes.conftest import JWT_TESTE, SENHA, entrar, sql
 def contar(cliente, consulta, **params):
     return list(sql(cliente, consulta, params)[0].values())[0]
 
-
-# ---------------------------------------------------------------------------
-# Basico e cabecalhos
-# ---------------------------------------------------------------------------
 
 def test_saude_e_cabecalhos_de_seguranca(cliente):
     r = cliente.get("/saude")
@@ -39,10 +27,6 @@ def test_endpoint_sem_token_retorna_401(cliente):
     assert r.status_code == 401
     assert set(r.json()) >= {"titulo", "status", "detalhe", "requisicao"}
 
-
-# ---------------------------------------------------------------------------
-# Autenticacao (RN12, CA04)
-# ---------------------------------------------------------------------------
 
 def test_login_so_com_matricula_falha(cliente):
     r = cliente.post("/api/v1/auth/token", json={"login": "ALU0001"})
@@ -63,7 +47,6 @@ def test_bloqueio_apos_cinco_falhas(cliente):
     for _ in range(5):
         r = cliente.post("/api/v1/auth/token", json={"login": "bloq.teste", "senha": "errada", "perfil": "ALUNO"})
         assert r.status_code == 401
-    # Mesmo com a senha certa, continua bloqueado.
     r = cliente.post("/api/v1/auth/token", json={"login": "bloq.teste", "senha": SENHA, "perfil": "ALUNO"})
     assert r.status_code in (401, 423)
     assert contar(cliente, "SELECT COUNT(*) FROM auditoria_acessos WHERE operacao='LOGIN' AND resultado='BLOQUEADO'") >= 1
@@ -102,10 +85,6 @@ def test_sair_revoga_o_token(cliente):
     assert cliente.get("/api/v1/alunos/ALU0001/score", headers=cab).status_code == 401
 
 
-# ---------------------------------------------------------------------------
-# SQL injection e validacao de entrada
-# ---------------------------------------------------------------------------
-
 @pytest.mark.parametrize("matricula", [
     "ALU0001' OR '1'='1", "ALU0001;DROP TABLE alunos", "12345", "12345678", "ALU 001", "1 OR 1=1",
 ])
@@ -139,17 +118,12 @@ def test_perfil_diferente_do_cadastrado_nao_entra(cliente):
     assert r.status_code == 401
 
 
-# ---------------------------------------------------------------------------
-# Isolamento e permissoes (RN07, RN17, CA14, CA19)
-# ---------------------------------------------------------------------------
-
 def test_aluno_ve_o_proprio_score_com_explicacao(cliente):
     r = cliente.get("/api/v1/alunos/ALU0001/score", headers=entrar(cliente, "ALU0001"))
     assert r.status_code == 200
     corpo = r.json()
     assert corpo["nivel"] in ("BAIXO", "MODERADO", "ALTO", "CRITICO", "INDETERMINADO")
     assert corpo["explicacao"] and corpo["aviso"]
-    # CA08: cada fator com o valor concreto e a explicacao em texto.
     calculados = [f for f in corpo["fatores"] if f.get("pontuacao") is not None]
     assert calculados and all(f["valor_bruto"] is not None and f["explicacao"] for f in calculados)
 
@@ -216,10 +190,6 @@ def test_auditoria_so_para_encarregado(cliente):
     assert r.status_code == 200 and len(r.json()) > 0
 
 
-# ---------------------------------------------------------------------------
-# LGPD: consentimento e direitos do titular
-# ---------------------------------------------------------------------------
-
 def test_menor_de_idade_nao_consente_sozinho_dado_de_saude(cliente):
     r = cliente.post("/api/v1/privacidade/consentimentos", headers=entrar(cliente, "ALU0002"),
                      json={"finalidade": "DADOS_SAUDE", "concedido": True, "versao_termo": "1.0"})
@@ -251,10 +221,6 @@ def test_solicitacao_de_direito_do_titular(cliente):
     assert any(s["tipo"] == "REVISAO_DECISAO_AUTOMATIZADA" for s in lista)
 
 
-# ---------------------------------------------------------------------------
-# Erros (SRS Secao 3.3)
-# ---------------------------------------------------------------------------
-
 def test_erro_500_nao_expoe_pilha_nem_sql(cliente, monkeypatch):
     from app.api import rotas
 
@@ -267,22 +233,16 @@ def test_erro_500_nao_expoe_pilha_nem_sql(cliente, monkeypatch):
     assert "Traceback" not in r.text and "SELECT" not in r.text and "socioeconomico" not in r.text
     codigo = r.json()["requisicao"]
     assert codigo and r.headers["X-Request-ID"] == codigo
-    # O mesmo codigo fica no registro tecnico, para o suporte achar o erro.
     assert contar(cliente, "SELECT COUNT(*) FROM logs_tecnicos WHERE id_requisicao = :c", c=codigo) == 1
 
 
-# ---------------------------------------------------------------------------
-# Guarda estatica contra SQL montado com texto
-# ---------------------------------------------------------------------------
-
 def _so_constantes(no) -> bool:
-    """SQL feito so de literais, constantes do modulo (NOMES_EM_MAIUSCULAS) e listas brancas, juntos com +."""
     import ast
     if isinstance(no, ast.Constant):
         return isinstance(no.value, str)
     if isinstance(no, ast.Name):
         return no.id.lstrip("_").replace("_", "").isupper()
-    if isinstance(no, ast.Subscript):  # lista branca constante: FILTROS[perfil]
+    if isinstance(no, ast.Subscript):
         return _so_constantes(no.value)
     if isinstance(no, ast.BinOp) and isinstance(no.op, ast.Add):
         return _so_constantes(no.left) and _so_constantes(no.right)
@@ -290,7 +250,6 @@ def _so_constantes(no) -> bool:
 
 
 def test_nenhum_sql_montado_com_texto_variavel():
-    """Reprova text() com f-string, % ou concatenacao com valor variavel, em qualquer arquivo."""
     import ast
     import pathlib
 

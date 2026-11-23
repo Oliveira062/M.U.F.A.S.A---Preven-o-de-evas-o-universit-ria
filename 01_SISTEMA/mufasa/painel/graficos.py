@@ -1,5 +1,3 @@
-"""Graficos do painel (plotly), com a rampa de mostarda do Figma e rotulo direto em toda barra."""
-
 import html
 
 import pandas as pd
@@ -14,7 +12,6 @@ _CONFIG = {"displayModeBar": False}
 
 
 def distribuicao_niveis(distribuicao: list[dict], altura=240):
-    """Barras horizontais por nivel, na ordem Critico -> Baixo; suprimido aparece escrito."""
     linhas = [d for d in distribuicao if d["nivel"] in ui.ORDEM_NIVEIS]
     linhas.sort(key=lambda d: ui.ORDEM_NIVEIS.index(d["nivel"]), reverse=True)
     nomes = [ui.NOME_NIVEL[d["nivel"]] for d in linhas]
@@ -48,7 +45,6 @@ def evolucao(serie: list[dict], altura=260):
         st.caption("Sem dado: ainda não há scores calculados.")
         return
     df = pd.DataFrame(serie)
-    # Um ponto por dia: eixo de categorias dd/mm, sem horas fantasmas quando ha poucos dias.
     df["dia"] = pd.to_datetime(df["dia"]).dt.strftime("%d/%m")
     fig = go.Figure()
     for coluna, nome, cor in (("em_risco", "Alto + Crítico", ui.COR_GRAFICO["ALTO"]),
@@ -65,7 +61,6 @@ def evolucao(serie: list[dict], altura=260):
 
 
 def empilhado_por_grupo(comparacao: list[dict], altura=300):
-    """Comparacao entre grupos (curso ou semestre), uma serie por nivel, mesma cor sempre."""
     if not comparacao:
         st.caption("Sem dado.")
         return
@@ -92,7 +87,6 @@ ORDEM_FAIXA = ["BAIXO", "MODERADO", "ALTO", "CRITICO"]
 
 
 def faixa_distribuicao(distribuicao: list[dict]):
-    """Barra unica 100% por nivel, Baixo -> Critico (Figma: Distribuicao por nivel de risco)."""
     por = {d["nivel"]: d for d in distribuicao}
     total = sum((por.get(n, {}).get("total") or 0) for n in ORDEM_FAIXA)
     if not total:
@@ -117,7 +111,6 @@ def faixa_distribuicao(distribuicao: list[dict]):
 
 
 def fatores_frequentes(fatores: list[dict], base: int | None):
-    """Linhas com trilho e percentual (Figma: Fatores mais frequentes)."""
     if not fatores:
         st.caption("Sem dado.")
         return
@@ -132,7 +125,6 @@ def fatores_frequentes(fatores: list[dict], base: int | None):
 
 
 def evolucao_empilhada(serie: list[dict], altura=280):
-    """Alertas em risco por dia, empilhado por nivel, legenda embaixo (Figma: Evolucao por periodo)."""
     if not serie:
         st.caption("Sem dado: ainda não há scores calculados.")
         return

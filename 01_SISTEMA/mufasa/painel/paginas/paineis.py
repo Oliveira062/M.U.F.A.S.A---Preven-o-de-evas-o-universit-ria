@@ -1,5 +1,3 @@
-"""Painel analitico comum a coordenacao (curso) e gestao (instituicao) - Figma Parte 2."""
-
 import streamlit as st
 
 import cliente
@@ -24,7 +22,6 @@ def _pct(valor) -> str:
 
 
 def filtros() -> dict:
-    """Filtros combinaveis, refletidos na URL (RF07). Botao "Filtros" do Figma, em janela suspensa."""
     qp = st.query_params
     ativos = sum(k in qp for k in ("semestre", "turno", "tendencia", "fator"))
     with st.container(key="filtros"):
@@ -83,7 +80,6 @@ def css_painel():
 
 
 def chips_niveis(distribuicao: list[dict], perfil: str):
-    """Um botao por nivel (Figma: chips abaixo da faixa): abre a fila ou a lista ja filtrada."""
     por = {d["nivel"]: d for d in distribuicao}
     linha = st.container(horizontal=True, gap="small")
     for n in ("BAIXO", "MODERADO", "ALTO", "CRITICO"):
@@ -127,7 +123,6 @@ def kpis(visao: dict, perfil: str):
 
 
 def painel(perfil: str, curso: str | None = None, f: dict | None = None, atencao=None):
-    """Painel analitico (Figma P2). atencao: funcao que desenha "Precisam de atencao agora" (coordenacao)."""
     css_painel()
     f = dict(f if f is not None else filtros())
     if perfil == "DIRECAO":

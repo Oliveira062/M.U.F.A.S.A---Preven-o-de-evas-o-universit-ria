@@ -1,12 +1,3 @@
-"""
-Montagem de um servico HTTP do MUFASA (API ou chat) com as mesmas camadas
-de seguranca, o mesmo formato de erro e um /saude que confere o banco.
-
-Cada servico roda em processo proprio (app/main.py e app/main_chat.py):
-se o chat cair, a API e o painel continuam; se a API cair, o chat, que
-tem seu proprio processo, continua respondendo.
-"""
-
 import asyncio
 import contextlib
 import logging
@@ -39,7 +30,6 @@ INTERVALO_SINAL_S = 15
 
 
 def criar_servico(nome: str, titulo: str, routers, obter_engine, sinal_de_vida: bool) -> FastAPI:
-    """obter_engine: funcao que devolve o engine do banco deste servico (perfil proprio)."""
     cfg = obter_configuracao()
     docs = cfg.docs_habilitada and not cfg.em_producao
 
@@ -74,7 +64,6 @@ def criar_servico(nome: str, titulo: str, routers, obter_engine, sinal_de_vida: 
 
     registrar_tratadores(app, registrar_erro)
 
-    # Ordem: o ultimo adicionado e o primeiro a rodar.
     app.add_middleware(CabecalhosSeguranca, hsts=cfg.forcar_https)
     if cfg.origens_cors:
         app.add_middleware(CORSMiddleware, allow_origins=cfg.origens_cors, allow_credentials=False,
@@ -89,7 +78,6 @@ def criar_servico(nome: str, titulo: str, routers, obter_engine, sinal_de_vida: 
 
     @app.get("/saude", tags=["saude"])
     def verificar_saude():
-        """Publico e sem detalhe interno: so diz se o servico e o banco respondem."""
         try:
             with obter_engine().connect() as conexao:
                 conexao.execute(_PING)

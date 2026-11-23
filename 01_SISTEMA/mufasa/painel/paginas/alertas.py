@@ -1,5 +1,3 @@
-"""Fila de alertas e acompanhamento (Figma Parte 3), para coordenacao, NAE, docente e financeiro."""
-
 import html
 
 import streamlit as st
@@ -27,7 +25,6 @@ CANAIS = {"Ambiente virtual": "AMBIENTE_VIRTUAL", "Presencial": "PRESENCIAL",
 
 
 SITUACAO_ROTULO = {"ABERTO": "Novo", "EM_ATENDIMENTO": "Em andamento", "ENCERRADO": "Encerrado"}
-# Colunas da tabela da fila (Figma P3: Estudante, Risco, Prazo, Responsavel, Status, Acoes)
 COLUNAS_FILA = [2.6, 1.5, 1.4, 1.9, 1.3, 0.9]
 
 
@@ -57,7 +54,6 @@ def _situacao(item) -> str:
 
 
 def _kpis_fila(perfil: str):
-    """Cartoes do topo da fila (Figma P3): totais do perfil, sem os filtros da tabela."""
     def total(**filtros):
         return cliente.get("/api/v1/alertas", limite=1, **filtros)["total"]
     with ui.secao():
@@ -76,7 +72,6 @@ def _kpis_fila(perfil: str):
 
 
 def tabela_fila(itens: list[dict], total: int, chave: str = "fila"):
-    """Tabela da fila (Figma P3): estudante, risco com score, prazo, responsavel, status e acao."""
     ui.css("".join(f".st-key-lin_{chave}_{i['id_alerta']} {{ border-left:3px solid {ui.COR['gold']}; }}"
                    for i in itens if i["vencido"] and i["situacao"] != "ENCERRADO"))
     linhas = []
@@ -124,7 +119,6 @@ def fila():
     nivel = c2.selectbox("Risco", list(NIVEIS), index=list(NIVEIS).index(nivel_inicial) if nivel_inicial in NIVEIS else 0)
     vencidos = c3.toggle("Só prazo vencido", value=qp.get("vencidos") == "1")
     sem_resp = c4.toggle("Sem responsável", value=qp.get("sem_resp") == "1") if perfil == "COORDENACAO" else False
-    # Filtros refletidos na URL (RF07): o mesmo recorte pode ser compartilhado.
     st.query_params.update({"situacao": situacao, "nivel": nivel, "vencidos": "1" if vencidos else "0",
                             "sem_resp": "1" if sem_resp else "0"})
     pagina = c5.number_input("Página", min_value=1, value=1, step=1)
@@ -252,7 +246,6 @@ def detalhe(id_alerta: int):
 
 
 def tabela_alunos(itens: list[dict], total: int | None = None, chave: str = "alunos"):
-    """Tabela de alunos (Figma P4: Alunos acompanhados); o botao abre a ficha."""
     linhas = []
     for i in itens:
         fundo = ui.SELO.get(i["nivel_risco"] or "PENDENTE", ui.SELO["PENDENTE"])[0]

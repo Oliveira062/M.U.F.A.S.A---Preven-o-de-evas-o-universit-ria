@@ -1,14 +1,3 @@
-"""
-Componentes visuais do painel, com os tokens do Figma (MUFASA - Design System).
-
-- Nivel de risco: mostarda nos niveis baixos, marrom no Alto e vermelho errFg no
-  Critico (pedido do grupo, 28/10/2026); sempre cor + icone + texto.
-- Cada secao da tela roda isolada (secao): se uma consulta falhar, so aquele
-  bloco mostra o aviso; o resto da tela continua.
-- Exportacao CSV sempre com rodape de versao e confidencialidade (RF21, RN23)
-  e protegida contra injecao de formula em planilha.
-"""
-
 import contextlib
 import csv
 import html
@@ -33,8 +22,6 @@ COR = {
     "deep": "#8C6410", "mustard": "#B8860B", "lineSoft": "#F0E5C8", "okBg": "#E6EFDF", "okFg": "#3F6B2E", "errBg": "#F6E1D3", "errFg": "#9A4A1E",
     "infoBg": "#EAE6DC", "infoFg": "#5B5141",
 }
-# Selos (Figma: riskLow/Mod/High/Crit), com texto em contraste AA sobre o fundo.
-# Pedido do grupo (28/10/2026): Critico no vermelho errFg do Figma e Alto no marrom escuro.
 SELO = {
     "BAIXO": ("#F7E9BF", "#5C4410", "○", "Baixo"),
     "MODERADO": ("#E9C35C", "#3D2B1F", "◐", "Moderado"),
@@ -43,7 +30,6 @@ SELO = {
     "INDETERMINADO": ("#EAE6DC", "#5B5141", "?", "Indeterminado"),
     "PENDENTE": ("#EAE6DC", "#5B5141", "…", "Pendente"),
 }
-# Rampa sequencial (claro -> escuro) para graficos; sempre com rotulo direto.
 COR_GRAFICO = {"BAIXO": "#EBD79B", "MODERADO": "#C99720", "ALTO": "#523E1D", "CRITICO": "#9A4A1E",
                "INDETERMINADO": "#B8B2A4", "PENDENTE": "#D8D3C8"}
 NOME_NIVEL = {k: v[3] for k, v in SELO.items()}
@@ -55,19 +41,16 @@ AVISO_DECISAO = "O sistema recomenda; a equipe decide e registra cada ação."
 
 
 _ICONES = json.loads((Path(__file__).with_name("icones.json")).read_text(encoding="utf-8"))
-# Icone de cada nivel no selo (Figma: Selo de risco)
 ICONE_NIVEL = {"BAIXO": "circle-check", "MODERADO": "info", "ALTO": "circle-alert", "CRITICO": "triangle-alert",
                "INDETERMINADO": "circle-question-mark", "PENDENTE": "hourglass"}
 
 
 def icone(nome: str, tamanho: int = 16, cor: str = "currentColor") -> str:
-    """Icone do Figma (biblioteca Lucide exportada do .fig) como SVG em linha."""
     svg = _ICONES.get(nome, "").replace('width="1em" height="1em"', f'width="{tamanho}" height="{tamanho}"')
     return f'<span class="mf-ic" style="width:{tamanho}px;height:{tamanho}px;color:{cor}">{svg}</span>'
 
 
 def icone_url(nome: str, cor: str) -> str:
-    """Icone como data URI (para CSS: fundo de campo, mascara de botao)."""
     svg = _ICONES.get(nome, "").replace("currentColor", cor)
     return "url(\"data:image/svg+xml;utf8," + quote(svg) + "\")"
 
@@ -80,12 +63,6 @@ _ACESSIBILIDADE_JS = (Path(__file__).parent / "acessibilidade.js").read_text(enc
 
 
 def acessibilidade():
-    """Botao flutuante de acessibilidade em todas as telas (painel/acessibilidade.js).
-
-    O componente (iframe de altura zero, mesma origem) coloca o script na pagina
-    principal uma unica vez. O script so roda no navegador; o VLibras so carrega
-    depois do aviso e da confirmacao da pessoa.
-    """
     componentes.html(_carregador_acessibilidade(), height=0)
 
 
@@ -350,7 +327,7 @@ def mostrar_selo(nivel):
 def card(rotulo: str, valor, legenda: str = "", icone_nome: str | None = None):
     valor_txt = "suprimido" if valor is None else valor
     ic = icone(icone_nome, 18, COR["deep"]) if icone_nome else ""
-    estilo = ' style="font-size:20px;line-height:28px"' if len(str(valor_txt)) > 12 else ""  # texto longo
+    estilo = ' style="font-size:20px;line-height:28px"' if len(str(valor_txt)) > 12 else ""
     st.markdown(f'<div class="mf-card"><div class="topo"><span class="rot">{html.escape(rotulo)}</span>{ic}</div>'
                 f'<div class="val"{estilo}>'
                 f'{html.escape(str(valor_txt))}</div>'
@@ -358,7 +335,6 @@ def card(rotulo: str, valor, legenda: str = "", icone_nome: str | None = None):
 
 
 def cabecalho(titulo: str, subtitulo: str = "", sobretitulo: str = ""):
-    """Cabecalho de pagina do Figma: sobretitulo dourado, titulo (h1 28/36) e subtitulo."""
     st.markdown('<div class="mf-cab">' + (f'<div class="mf-sobre">{html.escape(sobretitulo)}</div>' if sobretitulo else "")
                 + f'<h1 class="mf-titulo">{html.escape(titulo)}</h1>'
                 + (f'<div class="mf-sub">{html.escape(subtitulo)}</div>' if subtitulo else "") + "</div>",
@@ -373,7 +349,6 @@ def titulo_painel(titulo: str, subtitulo: str = ""):
 
 @contextlib.contextmanager
 def painel(chave: str):
-    """Bloco branco com borda creme e raio 16 (Figma: cartoes de secao)."""
     with st.container(key="pn_" + chave):
         yield
 
@@ -404,9 +379,6 @@ def rodape(extra: str = ""):
                 unsafe_allow_html=True)
 
 
-# ---------- Tabelas de dados (somente leitura) ----------
-# Celulas ja em HTML seguro: todo texto vindo da API passa por html.escape.
-
 def txt(valor, vazio: str = "—") -> str:
     if valor is None or valor == "":
         return f'<span class="mf-vazio">{vazio}</span>'
@@ -414,12 +386,10 @@ def txt(valor, vazio: str = "—") -> str:
 
 
 def cel_dupla(principal, detalhe=None) -> str:
-    """Texto principal em destaque e uma linha menor embaixo."""
     return f'<b>{txt(principal)}</b>' + (f'<small>{txt(detalhe)}</small>' if detalhe not in (None, "") else "")
 
 
 def cel_nota(valor, minimo: float | None = 6.0, casas: int = 1) -> str:
-    """Nota no formato brasileiro (7,8); abaixo do minimo fica em destaque."""
     if valor is None:
         return '<span class="mf-vazio">—</span>'
     if minimo is None:
@@ -429,7 +399,6 @@ def cel_nota(valor, minimo: float | None = 6.0, casas: int = 1) -> str:
 
 
 def cel_freq(valor, minimo: float | None = 75.0) -> str:
-    """Frequencia com barra curta; abaixo do minimo em destaque."""
     if valor is None:
         return '<span class="mf-vazio">sem dado</span>'
     v = max(0.0, min(100.0, float(valor)))
@@ -444,7 +413,6 @@ SITUACAO_ESTILO = {"aprovad": ("okBg", "okFg", "check"), "reprovad": ("errBg", "
 
 
 def cel_situacao(texto) -> str:
-    """Situacao da disciplina ou do pedido em selo com icone e texto."""
     if not texto:
         return '<span class="mf-vazio">—</span>'
     rotulo = str(texto).replace("_", " ").lower()
@@ -455,18 +423,12 @@ def cel_situacao(texto) -> str:
 
 
 def cel_alertas(itens: list[str], ok: str = "Em dia") -> str:
-    """Pontos de atencao em etiquetas; sem nenhum, um selo verde."""
     if not itens:
         return pilula(ok, COR["okBg"], COR["okFg"], "check")
     return " ".join(pilula(i, COR["errBg"], COR["errFg"], "triangle-alert") for i in itens)
 
 
 def grade(colunas: list, linhas: list[list[str]], legenda: str = "", rotulo: str = "Tabela"):
-    """
-    Tabela de leitura no padrao visual do MUFASA (substitui st.dataframe nas telas).
-    colunas: nomes, ou (nome, alinhamento) com alinhamento "e", "c" ou "d".
-    linhas: celulas ja em HTML seguro (use txt/cel_* acima).
-    """
     cols = [(c, "e") if isinstance(c, str) else c for c in colunas]
     cab = "".join(f'<th scope="col" class="al-{a}">{html.escape(n)}</th>' for n, a in cols)
     corpo = "".join("<tr>" + "".join(f'<td class="al-{cols[i][1]}">{cel}</td>' for i, cel in enumerate(l)) + "</tr>"
@@ -479,7 +441,6 @@ def grade(colunas: list, linhas: list[list[str]], legenda: str = "", rotulo: str
 
 
 def grade_simples(linhas: list[dict], rotulo: str, legenda: str = "", direita: tuple = (), destaque: dict | None = None):
-    """Tabela a partir de dicionarios (chave = coluna). destaque: coluna -> funcao(valor) que devolve HTML."""
     if not linhas:
         return
     colunas = list(linhas[0])
@@ -490,7 +451,6 @@ def grade_simples(linhas: list[dict], rotulo: str, legenda: str = "", direita: t
 
 
 def resumo(itens: list[tuple]):
-    """Faixa de numeros-chave acima de uma tabela: (rotulo, valor, tom) com tom ok, alerta ou neutro."""
     tons = {"ok": (COR["okBg"], COR["okFg"]), "alerta": (COR["errBg"], COR["errFg"]),
             "neutro": (COR["creamSoft"], COR["text"])}
     st.markdown('<div class="mf-resumo">' + "".join(
@@ -505,7 +465,6 @@ ICONE_FATOR = {"notas": "book-open", "frequencia": "calendar-check", "reprovacao
 
 
 def cartoes_fatores(fatores: list[dict], direita=None):
-    """Fatores do risco em cartoes com icone. direita(f) devolve HTML extra (pontos, faixa)."""
     st.markdown('<div class="mf-fatores">' + "".join(
         f'<div class="mf-fator"><span class="ico">{icone(ICONE_FATOR.get(f.get("fator"), "info"), 18)}</span>'
         f'<div><b>{html.escape((f.get("nome") or "").capitalize())}</b>'
@@ -542,10 +501,6 @@ def _slug(texto: str) -> str:
 
 @contextlib.contextmanager
 def secao(titulo: str | None = None, subtitulo: str = "", chave: str | None = None):
-    """Isola uma parte da tela: erro aqui nao derruba o restante (Plano T27).
-
-    Com titulo, a secao vira um painel do Figma (bloco branco, titulo h3 e subtitulo).
-    """
     caixa = st.container(key="pn_s_" + (chave or _slug(titulo))) if titulo else st.container()
     with caixa:
         if titulo:
@@ -562,7 +517,7 @@ def secao(titulo: str | None = None, subtitulo: str = "", chave: str | None = No
                 st.info(e.mensagem)
             else:
                 st.error(e.mensagem + (f" Código para o suporte: {e.requisicao}." if e.requisicao else ""))
-        except Exception:  # noqa: BLE001 - qualquer falha de exibicao fica contida na secao
+        except Exception:
             codigo = "P-" + uuid.uuid4().hex[:8]
             log.exception("falha ao montar a secao %r (codigo %s)", titulo or "-", codigo)
             st.error("Não foi possível mostrar esta parte agora. O restante da tela continua funcionando. "
@@ -570,7 +525,6 @@ def secao(titulo: str | None = None, subtitulo: str = "", chave: str | None = No
 
 
 def _seguro_planilha(valor):
-    """Impede injecao de formula ao abrir o CSV no Excel/LibreOffice (OWASP CSV injection)."""
     if isinstance(valor, str) and valor[:1] in ("=", "+", "-", "@", "\t", "\r"):
         return "'" + valor
     return valor
@@ -608,7 +562,6 @@ def _botao_download(linhas, colunas, titulo, nome_arquivo):
 
 
 def ir(url_path: str, **estado):
-    """Vai para outra tela do perfil levando o contexto (ex.: matricula da ficha)."""
     st.session_state.update(estado)
     pagina = st.session_state.get("_paginas", {}).get(url_path)
     if pagina is not None:
@@ -616,7 +569,6 @@ def ir(url_path: str, **estado):
 
 
 def link(rotulo: str, url_path: str, chave: str, icone_nome: str | None = None, **estado):
-    """Atalho para outra tela; com icone_nome, o icone do Figma vai antes do texto."""
     if icone_nome:
         _icone_botao("lk_" + chave, icone_nome)
     with st.container(key="lk_" + chave):
@@ -625,14 +577,12 @@ def link(rotulo: str, url_path: str, chave: str, icone_nome: str | None = None, 
 
 
 def voltar(rotulo: str, chave: str) -> bool:
-    """Botao de texto com seta para a esquerda (Figma: voltar)."""
     with st.container(key="vt_" + chave):
         return st.button(rotulo, key=chave)
 
 
 def pilula(texto: str, fundo: str | None = None, cor: str | None = None, icone_nome: str | None = None,
            contorno: bool = False) -> str:
-    """Pilula de estado do Figma (prazo, situacao, categoria do fator)."""
     ic = icone(icone_nome, 12) if icone_nome else ""
     if contorno:
         return f'<span class="mf-pilula contorno">{html.escape(texto)}</span>'
@@ -647,17 +597,12 @@ def barra(valor, maximo=100, cor: str | None = None, largura: str = "100%") -> s
 
 
 def pessoa(nome: str, detalhe: str = "", tamanho: int = 32) -> str:
-    """Celula de tabela do Figma: iniciais, nome e uma linha de detalhe."""
     return (f'<div class="mf-lista-l" style="min-height:0">{avatar(nome, tamanho)}<div><b>{html.escape(nome)}</b>'
             f'<small>{html.escape(detalhe)}</small></div></div>')
 
 
 def tabela(chave: str, cabecalho: list[str], pesos: list[float], linhas: list[tuple], rotulo_acao: str | None = None,
            primario: bool = False, rodape: str = ""):
-    """Tabela do Figma (cabecalho creme, linhas com divisoria e botao de acao por linha).
-
-    linhas: (identificador, [html de cada coluna]). Devolve o identificador da linha cujo botao foi clicado.
-    """
     clicado = None
     pesos_todos = pesos + ([0.9] if rotulo_acao else [])
     with st.container(key="pn_tb_" + chave):
@@ -679,10 +624,6 @@ def tabela(chave: str, cabecalho: list[str], pesos: list[float], linhas: list[tu
 
 
 def heroi(nome: str, selo_html: str, meta: list[tuple[str, str]], proporcao=(3, 1)):
-    """Cabecalho de pessoa do Figma (ficha e alerta): avatar, nome, selo e metadados.
-
-    Devolve a coluna da direita, para os botoes de acao.
-    """
     with st.container(key="heroi"):
         esq, dir_ = st.columns(proporcao, vertical_alignment="center")
         esq.markdown(f'<div class="mf-hero">{avatar(nome, 64)}<div><h1>{html.escape(nome)} {selo_html}</h1>'
@@ -692,13 +633,11 @@ def heroi(nome: str, selo_html: str, meta: list[tuple[str, str]], proporcao=(3, 
 
 
 def aviso(titulo: str, texto: str, icone_nome: str = "info"):
-    """Faixa informativa do Figma (fundo creme claro, icone, titulo e texto)."""
     st.markdown(f'<div class="mf-aviso">{icone(icone_nome, 20, COR["deep"])}<div><b>{html.escape(titulo)}</b>'
                 f'<span>{html.escape(texto)}</span></div></div>', unsafe_allow_html=True)
 
 
 def atalho(chave: str, url_path: str, titulo: str, texto: str, icone_nome: str):
-    """Cartao de atalho do Figma (icone em caixa creme, titulo, descricao e seta)."""
     pagina = st.session_state.get("_paginas", {}).get(url_path)
     if pagina is None:
         return
@@ -710,7 +649,6 @@ def atalho(chave: str, url_path: str, titulo: str, texto: str, icone_nome: str):
 
 
 def texto_link(rotulo: str, chave: str) -> bool:
-    """Link de texto com seta (Figma: "Ver alunos ->")."""
     with st.container(key="tx_" + chave):
         return st.button(rotulo, key=chave)
 

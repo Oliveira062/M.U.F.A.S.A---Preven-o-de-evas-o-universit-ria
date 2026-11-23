@@ -1,13 +1,3 @@
-"""
-Conversa e historico (RN13 e auditoria do Anexo D.2).
-
-- Uma conversa aberta por usuario. Sem mensagem por 2 horas, ela encerra
-  na proxima interacao, o usuario e avisado e o historico continua salvo.
-- Cada mensagem grava: usuario, pergunta SEM dado pessoal, intencao,
-  consulta executada, quantidade de registros, resposta, se a IA redigiu e
-  se foi tentativa de burla. Senha, token e CPF nunca sao gravados.
-"""
-
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.engine import Connection
@@ -33,7 +23,6 @@ def _como_datetime(valor) -> datetime | None:
 
 
 def obter_ou_abrir(conexao: Connection, id_usuario: int) -> tuple[int, str | None]:
-    """Devolve (id da conversa, aviso de encerramento por inatividade ou None)."""
     momento = agora()
     limite = timedelta(minutes=obter_configuracao_chat().chat_inatividade_minutos)
     aviso = None
@@ -72,6 +61,5 @@ def registrar(conexao: Connection, *, id_conversa: int, id_usuario: int, pergunt
 
 
 def ultimas(conexao: Connection, id_usuario: int, limite: int = 3) -> list[dict]:
-    """Ultimas perguntas (ja sem dado pessoal) e intencoes da conversa aberta, da mais nova para a mais antiga."""
     return [dict(l) for l in conexao.execute(sql.ULTIMAS_DA_CONVERSA,
                                              {"id_usuario": id_usuario, "limite": limite}).mappings().all()]

@@ -2,8 +2,6 @@
 chcp 65001 >nul
 setlocal
 title MUFASA - iniciar
-REM Liga o MUFASA (banco, API, chat, calculo e painel) e abre o painel no navegador.
-REM Uso: duplo clique neste arquivo. Pode rodar quantas vezes quiser.
 cd /d "%~dp0"
 
 echo.
@@ -16,7 +14,6 @@ if errorlevel 1 (
   goto :fim_erro
 )
 
-REM 1. Docker Desktop precisa estar aberto.
 docker info >nul 2>&1
 if not errorlevel 1 goto :docker_ok
 echo Abrindo o Docker Desktop...
@@ -36,7 +33,6 @@ goto :espera_docker
 :docker_ok
 echo [ok] Docker no ar.
 
-REM 2. Atualiza a imagem com o codigo desta pasta (rapido quando nada mudou).
 echo Preparando a versao desta pasta (na primeira vez leva alguns minutos)...
 docker build -q -t mufasa:1.1.0 . >nul
 if errorlevel 1 (
@@ -44,7 +40,6 @@ if errorlevel 1 (
   goto :fim_erro
 )
 
-REM 3. Primeira vez: cria o .env com senhas novas.
 if exist ".env" goto :env_ok
 echo Primeira vez neste computador: criando o arquivo .env...
 docker run --rm -u root -v "%cd%:/app" mufasa:1.1.0 python -m scripts.configurar --docker
@@ -52,17 +47,14 @@ if errorlevel 1 goto :fim_erro
 :env_ok
 echo [ok] Configuracao (.env) encontrada.
 
-REM 4. Chave da Groq: copia do groq.env para o .env, se o arquivo existir.
 if exist "groq.env" docker run --rm -u root -v "%cd%:/app" mufasa:1.1.0 python -m scripts.configurar --chaves
 
-REM 5. Sobe tudo. Na primeira vez o banco e montado (pode levar alguns minutos).
 docker compose up -d
 if errorlevel 1 (
   echo [ERRO] Nao foi possivel subir os servicos. Veja: docker compose ps -a  e  docker compose logs montar
   goto :fim_erro
 )
 
-REM 6. Espera o painel responder (ate 10 minutos na primeira vez).
 echo Esperando o painel ficar pronto...
 set /a tentativas=0
 :espera_painel

@@ -1,22 +1,5 @@
-"""
-Todas as consultas SQL do B3, em um unico lugar para revisao.
-
-Cada constante usa so parametros nomeados (:nome). Nenhuma e montada com
-dado do usuario. Onde a consulta precisa variar (ordenacao), a variacao vem
-de uma lista branca de fragmentos fixos, nunca do texto recebido.
-
-Os filtros opcionais usam CAST(:x AS tipo) IS NULL para o PostgreSQL saber
-o tipo do parametro mesmo quando ele chega vazio.
-
-Minimizacao (LGPD art. 6, III): cada consulta seleciona so as colunas que
-o endpoint devolve. Nenhum SELECT *.
-"""
-
 from sqlalchemy import text
 
-# ---------------------------------------------------------------------------
-# Usuarios e sessao
-# ---------------------------------------------------------------------------
 
 USUARIO_POR_LOGIN = text("""
     SELECT id_usuario, login, senha_hash, perfil, id_aluno, id_professor, id_curso,
@@ -52,9 +35,6 @@ REVOGAR_TOKEN = text("""
     INSERT INTO tokens_revogados (jti, expira_em) VALUES (:jti, :expira_em)
 """)
 
-# ---------------------------------------------------------------------------
-# Escopo de acesso (RN07, RN17)
-# ---------------------------------------------------------------------------
 
 ALUNO_DAS_TURMAS_DO_DOCENTE = text("""
     SELECT 1
@@ -69,7 +49,6 @@ ALUNO_DO_CURSO = text("""
     SELECT 1 FROM alunos WHERE id_aluno = :id_aluno AND id_curso = :id_curso
 """)
 
-# Alerta pedagogico aberto do aluno (escopo do nucleo de apoio e do financeiro).
 ALERTA_ABERTO_DO_ALUNO = text("""
     SELECT a.id_alerta, a.id_responsavel, a.nivel, a.situacao, a.prazo_em, s.fatores_principais
       FROM alertas a
@@ -77,7 +56,6 @@ ALERTA_ABERTO_DO_ALUNO = text("""
      WHERE a.id_aluno = :id_aluno AND a.tipo = 'PEDAGOGICO' AND a.situacao <> 'ENCERRADO'
 """)
 
-# Score atual (ultimo calculo do B2) e seus fatores principais.
 SCORE_ATUAL = text("""
     SELECT id_score, score, nivel, nivel_origem, motivo_sobreposicao, parcial, completude,
            fatores, fatores_principais, modificadores, recomendacoes, recomendacao,
@@ -86,10 +64,6 @@ SCORE_ATUAL = text("""
      WHERE id_aluno = :id_aluno
 """)
 
-# ---------------------------------------------------------------------------
-# Listagem. O nivel vem do score atual, numa unica consulta: nada de
-# calcular o score aluno por aluno dentro de um laco (N+1).
-# ---------------------------------------------------------------------------
 
 _LISTA_BASE = """
     SELECT a.id_aluno, a.nome_ficticio, a.semestre_atual, s.nivel, s.score
@@ -106,12 +80,10 @@ _FILTRO_POR_PERFIL = {
                     WHERE m.id_aluno = a.id_aluno AND t.id_professor = :id_professor)
     """,
     "COORDENACAO": "AND a.id_curso = :id_curso",
-    # Anexo E: o nucleo de apoio ve so os alunos com alerta aberto atribuido a ele.
     "NUCLEO_APOIO": """AND EXISTS (SELECT 1 FROM alertas al WHERE al.id_aluno = a.id_aluno
                                        AND al.situacao <> 'ENCERRADO' AND al.id_responsavel = :id_usuario)""",
 }
 
-# Lista branca de ordenacao: o parametro da URL escolhe a CHAVE, nunca o SQL.
 ORDENACOES = {
     "nome": "ORDER BY a.nome_ficticio, a.id_aluno",
     "semestre": "ORDER BY a.semestre_atual, a.id_aluno",
@@ -125,7 +97,6 @@ def consulta_total_alunos(perfil: str):
 
 
 def consulta_lista_alunos(perfil: str, ordem: str):
-    """Monta a listagem so a partir de fragmentos constantes deste arquivo."""
     return text(
         _LISTA_BASE
         + _FILTRO_POR_PERFIL[perfil]
@@ -133,10 +104,6 @@ def consulta_lista_alunos(perfil: str, ordem: str):
         + "\n LIMIT :limite OFFSET :deslocamento"
     )
 
-
-# ---------------------------------------------------------------------------
-# Perfil do aluno, separado por grau de sensibilidade
-# ---------------------------------------------------------------------------
 
 ALUNO_BASICO = text("""
     SELECT a.id_aluno, a.nome_ficticio, a.id_curso, c.nome AS curso, a.semestre_atual
@@ -155,27 +122,22 @@ INDICADORES_ATUAIS = text("""
      LIMIT 1
 """)
 
-# Sem renda familiar total, numero de moradores, ProUni, FIES ou desconto:
-# o score usa so a renda per capita, e nenhum perfil precisa dos outros.
 SOCIOECONOMICO_RESTRITO = text("""
     SELECT renda_per_capita, trabalha, horas_trabalho_dia, tempo_deslocamento_min, auxilio_bolsa
       FROM socioeconomico
      WHERE id_aluno = :id_aluno
 """)
 
-# So as colunas que o calculo do score usa (servico de calculo, menor privilegio).
 SOCIOECONOMICO_PARA_SCORE = text("""
     SELECT renda_per_capita, trabalha, horas_trabalho_dia, tempo_deslocamento_min
       FROM socioeconomico
      WHERE id_aluno = :id_aluno
 """)
 
-# Cifrado (app/api/cifra.py): o banco so guarda o token Fernet.
 DADOS_SENSIVEIS_APOIO = text("""
     SELECT dados_cifrados FROM apoio_aluno WHERE id_aluno = :id_aluno
 """)
 
-# Evolucao do score calculado pelo B2.
 HISTORICO_SCORE = text("""
     SELECT calculado_em, score, nivel, nivel_origem, completude, versao_modelo, versao_parametros
       FROM scores_risco
@@ -184,8 +146,6 @@ HISTORICO_SCORE = text("""
      LIMIT :limite
 """)
 
-# Avaliacoes gravadas no dump do B1 (outra regra e outros cortes): entram so
-# na exportacao de dados do titular, nunca no painel.
 HISTORICO_RISCO = text("""
     SELECT periodo_letivo, tipo, data_avaliacao, risco_evasao_pct, nivel_risco
       FROM avaliacoes_risco
@@ -194,9 +154,6 @@ HISTORICO_RISCO = text("""
      LIMIT :limite
 """)
 
-# ---------------------------------------------------------------------------
-# Agregados (CA19): grupos com menos de 5 alunos nao saem do banco.
-# ---------------------------------------------------------------------------
 
 AGREGADOS_POR_SEMESTRE = text("""
     SELECT a.semestre_atual AS semestre, s.nivel AS nivel_risco, COUNT(*) AS total
@@ -207,13 +164,8 @@ AGREGADOS_POR_SEMESTRE = text("""
     HAVING COUNT(*) >= :minimo_grupo
      ORDER BY a.semestre_atual, s.nivel
 """)
-# Idade so para a regra de menor de idade (RN16, LGPD art. 14); nao e devolvida.
 IDADE_ALUNO = text("SELECT idade FROM alunos WHERE id_aluno = :id_aluno")
 
-
-# ---------------------------------------------------------------------------
-# Direitos do titular e consentimento (LGPD arts. 8, 11, 14, 18)
-# ---------------------------------------------------------------------------
 
 CONSENTIMENTOS_DO_ALUNO = text("""
     SELECT finalidade, concedido, concedido_por, versao_termo, registrado_em
@@ -263,10 +215,6 @@ LISTAR_SOLICITACOES_TITULAR = text("""
      LIMIT :limite OFFSET :deslocamento
 """)
 
-# ---------------------------------------------------------------------------
-# Auditoria (LGPD art. 37). Tabela so de insercao: o usuario mufasa_api nao
-# tem UPDATE nem DELETE nela (sql/b3_complemento.sql).
-# ---------------------------------------------------------------------------
 
 REGISTRAR_AUDITORIA = text("""
     INSERT INTO auditoria_acessos

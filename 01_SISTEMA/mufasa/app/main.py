@@ -1,10 +1,3 @@
-"""
-API do MUFASA (painel e integracoes). O chat roda em processo separado:
-app/main_chat.py.
-
-    uvicorn app.main:app --host 127.0.0.1 --port 8000
-"""
-
 from app.api.banco import obter_engine
 from app.api.rotas import router
 from app.api.rotas_admin import router_admin

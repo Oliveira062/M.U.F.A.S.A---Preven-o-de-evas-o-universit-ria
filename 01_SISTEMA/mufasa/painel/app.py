@@ -1,15 +1,3 @@
-"""
-Painel do MUFASA (F1), em Streamlit.
-
-    MUFASA_API_URL=http://127.0.0.1:8000 MUFASA_CHAT_URL=http://127.0.0.1:8001 \
-        streamlit run painel/app.py
-
-Fluxo: login com seletor de perfil -> primeiro acesso (termo e troca de
-senha, exigidos pela API) -> hub do perfil, que leva as demais telas.
-O painel nao tem acesso ao banco: cada numero vem da API, ja recortado
-pelo perfil no servidor.
-"""
-
 import streamlit as st
 
 import cliente
@@ -22,11 +10,6 @@ ui.aplicar_tema()
 ui.acessibilidade()
 
 def paginas_do_perfil(perfil: str):
-    """Devolve (todas as paginas, itens do menu com o icone do Figma, pagina de notificacoes).
-
-    O menu segue o shell do Figma de cada perfil; ficha, turma, notificacoes e conta
-    continuam como paginas, abertas pelas listas, pelo sino e pelo nome na barra superior.
-    """
     P = st.Page
     notificacoes = P(comum.notificacoes, title="Notificações", url_path="notificacoes")
     conta = P(comum.minha_conta, title="Minha conta", url_path="conta")
@@ -83,7 +66,7 @@ def principal():
     try:
         conta = cliente.get("/api/v1/conta/eu")
     except cliente.ErroAPI as e:
-        if "token" not in st.session_state:  # sessao expirada: o cliente ja limpou
+        if "token" not in st.session_state:
             st.rerun()
         st.error(e.mensagem)
         if st.button("Voltar ao login"):
@@ -95,7 +78,6 @@ def principal():
         acesso.primeiro_acesso(conta)
         return
     paginas, menu, notificacoes, pagina_conta = paginas_do_perfil(conta["perfil"])
-    # Atalhos entre telas (ui.ir): cada pagina pelo endereco curto.
     st.session_state["_paginas"] = {p.url_path: p for p in paginas}
     navegacao = st.navigation(paginas, position="hidden")
     casca.menu_lateral(conta, menu, navegacao)

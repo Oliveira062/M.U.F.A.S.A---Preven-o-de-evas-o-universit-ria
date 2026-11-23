@@ -1,23 +1,3 @@
-"""
-Base dos testes de API, chat e servicos: um PostgreSQL de verdade.
-
-Os testes montam um banco proprio, mufasa_teste, com a MESMA estrutura da
-producao (dump do B1 sem os dados + sql/*.sql + migracoes) e um conjunto
-pequeno de dados controlados, para que cada resultado esperado seja
-conhecido. O banco principal (mufasa) nunca e tocado.
-
-Configuracao (no .env ou no ambiente):
-    DATABASE_URL_ADMIN   conexao do dono (postgres); o nome do banco e trocado por mufasa_teste
-    DATABASE_URL, CHAT_DATABASE_URL, CALCULO_DATABASE_URL   perfis restritos (senhas)
-    APOIO_CHAVE          chave Fernet
-    MUFASA_DUMP          opcional: caminho do dump do B1
-Sem essas variaveis, os testes que precisam de banco sao pulados com aviso;
-os testes de calculo (teste_calculo.py) rodam sempre.
-
-    pytest                      # tudo
-    pytest -m "not banco"       # so o que nao precisa de PostgreSQL
-"""
-
 import os
 from pathlib import Path
 
@@ -48,8 +28,6 @@ DUMP = next((Path(c) for c in _DUMP_CANDIDATOS if c and Path(c).exists()), None)
 FALTANDO = [n for n, u in URLS.items() if not u] + ([] if os.environ.get("APOIO_CHAVE") else ["APOIO_CHAVE"]) \
     + ([] if DUMP else ["dump do B1 (banco/Parte Samuel BackEnd B1 - limpo.sql)"])
 
-# Os modulos da aplicacao leem a configuracao do ambiente: aponta tudo para o
-# banco de teste ANTES de qualquer import de app.*.
 for _nome, _url in URLS.items():
     if _url:
         os.environ[_nome] = _url
@@ -67,12 +45,6 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(pytest.mark.banco)
 
 
-# ---------------------------------------------------------------------------
-# Dados controlados. Notas de 0 a 10 (escala apos sql/b1_correcoes.sql).
-# ALU0001 tem um zero de verdade na VA2 de Calculo I: o zero tem de aparecer.
-# ALU0002 tem 17 anos (menor). ALU0003 e de outro curso. ALU0004 nao tem dados.
-# ALU0010..15 (semestre 5) formam grupo visivel; ALU0016..17 (semestre 6), grupo suprimido.
-# ---------------------------------------------------------------------------
 DADOS = """
 INSERT INTO universidades VALUES ('UNI01','Universidade Teste','Anapolis','GO');
 INSERT INTO cursos VALUES ('CUR01','UNI01','Inteligencia Artificial','Bacharelado',8,6,75),
@@ -123,7 +95,6 @@ USUARIOS = [
 
 
 def calcular_tudo(url_calculo: str) -> int:
-    """O mesmo que o servico de calculo faz ao subir: score de todos, alertas e prazos."""
     from sqlalchemy import create_engine
 
     from app.servico_calculo import consultas_calculo as sqlc
@@ -196,7 +167,6 @@ def _reiniciar_configuracao():
 
 @pytest.fixture(scope="session")
 def cliente(banco_teste):
-    """API (app.main) ligada ao banco de teste com o perfil mufasa_api."""
     from fastapi.testclient import TestClient
     _reiniciar_configuracao()
     from app.main import app
@@ -207,7 +177,6 @@ def cliente(banco_teste):
 
 @pytest.fixture(scope="session")
 def cliente_chat(banco_teste):
-    """Servico do chat (app.main_chat), processo separado na producao."""
     from fastapi.testclient import TestClient
     from app.main_chat import app
     with TestClient(app, raise_server_exceptions=False) as tc:
@@ -228,7 +197,6 @@ _TOKENS: dict[str, dict] = {}
 
 
 def entrar(cliente, login, senha=SENHA, perfil=None, novo=False):
-    """Cabecalho de autorizacao. Reaproveita o token, salvo novo=True."""
     if novo or login not in _TOKENS or senha != SENHA:
         perfil = perfil or next(u[1] for u in USUARIOS if u[0] == login)
         r = cliente.post("/api/v1/auth/token", json={"login": login, "senha": senha, "perfil": perfil})
@@ -241,7 +209,6 @@ def entrar(cliente, login, senha=SENHA, perfil=None, novo=False):
 
 
 def sql(cliente, consulta: str, params: dict | None = None):
-    """Consulta direta como dono do banco (so para conferir efeitos nos testes)."""
     from sqlalchemy import text
     with cliente.engine.begin() as c:
         r = c.execute(text(consulta), params or {})

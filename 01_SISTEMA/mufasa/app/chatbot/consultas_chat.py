@@ -1,23 +1,8 @@
-"""
-Todas as consultas SQL do chatbot, em um unico lugar para revisao.
-
-Mesma regra do B3 (app/api/banco.py): so constantes com parametros
-nomeados, nenhuma montada com texto do usuario. O chatbot nao gera SQL: a
-intencao escolhe UMA destas constantes e o servidor preenche os parametros
-com o escopo do usuario logado (RN06).
-
-Toda consulta tem LIMIT (Anexo D.2: limite de linhas obrigatorio) e le so
-as visoes vw_chat_* criadas em sql/chatbot.sql.
-"""
-
 from sqlalchemy import text
 
 LIMITE_LINHAS = 50
 LIMITE_LISTA_RISCO = 10
 
-# ---------------------------------------------------------------------------
-# Dados do proprio aluno
-# ---------------------------------------------------------------------------
 
 DISCIPLINAS_DO_ALUNO = text("""
     SELECT disciplina, periodo_letivo, va1, va2, va3, nota_final, frequencia_pct, situacao,
@@ -44,9 +29,6 @@ RISCO_DO_ALUNO = text("""
      LIMIT 1
 """)
 
-# ---------------------------------------------------------------------------
-# Equipe: contagens e listas dentro do escopo do perfil
-# ---------------------------------------------------------------------------
 
 RESUMO_RISCO_CURSO = text("""
     SELECT nivel_risco, COUNT(*) AS total
@@ -82,9 +64,6 @@ MAIOR_RISCO_DOCENTE = text("""
      LIMIT :limite
 """)
 
-# ---------------------------------------------------------------------------
-# Conversa e historico (RN13, auditoria do Anexo D.2)
-# ---------------------------------------------------------------------------
 
 CONVERSA_ABERTA = text("""
     SELECT id_conversa, ultima_interacao
@@ -126,19 +105,10 @@ HISTORICO_DO_USUARIO = text("""
      LIMIT :limite
 """)
 
-# Catalogo de disciplinas: serve so para reconhecer o nome citado na
-# pergunta e dizer "voce nao esta matriculado nela", em vez de inventar.
 NOMES_DAS_DISCIPLINAS = text("""
     SELECT DISTINCT nome FROM materias ORDER BY nome LIMIT 300
 """)
 
-# ---------------------------------------------------------------------------
-# Busca da equipe com filtros combinados (app/chatbot/filtros.py)
-# UMA consulta fixa: cada filtro e um par de limites (minimo e maximo,
-# inclusivo ou exclusivo) que fica NULL quando nao foi pedido. O texto da
-# pergunta nunca entra no SQL, so os numeros, como parametros.
-# A distancia so e lida quando :ver_distancia e verdadeiro (nucleo de apoio).
-# ---------------------------------------------------------------------------
 
 LIMITE_BUSCA = 15
 CAMPOS_DA_BUSCA = ("frequencia", "media", "faltas", "pendencias", "semestre", "distancia")
@@ -187,7 +157,6 @@ BUSCA_ALUNOS = text("""
      LIMIT :limite
 """)
 
-# Agregado de uma linha so (por isso sem LIMIT).
 CONTAGEM_BUSCA_ALUNOS = text("""
     SELECT COUNT(*) AS total,
            COUNT(*) FILTER (WHERE b.nivel_risco = 'Crítico') AS criticos,
@@ -201,7 +170,6 @@ _SUFIXO = {">": ("gt",), ">=": ("ge",), "<": ("lt",), "<=": ("le",), "=": ("ge",
 
 def parametros_busca(filtros: list, niveis: list[str], media_caiu: bool, ver_distancia: bool,
                      id_professor: str | None = None, id_curso: str | None = None) -> dict:
-    """Traduz a lista de filtros (campo e operador ja conferidos) nos limites da consulta fixa."""
     params = {f"{c}_{s}": None for c in CAMPOS_DA_BUSCA for s in ("ge", "gt", "le", "lt")}
     for f in filtros:
         if f.campo not in CAMPOS_DA_BUSCA or f.operador not in _SUFIXO:
@@ -216,10 +184,6 @@ def parametros_busca(filtros: list, niveis: list[str], media_caiu: bool, ver_dis
                    "id_professor": id_professor, "id_curso": id_curso})
     return params
 
-
-# ---------------------------------------------------------------------------
-# Respostas pessoais e atividades com prazo
-# ---------------------------------------------------------------------------
 
 PERFIL_DO_ALUNO = text("""
     SELECT nome_ficticio, nivel_risco, nivel_anterior, fatores_principais, periodo_letivo, frequencia_pct,

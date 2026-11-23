@@ -1,23 +1,3 @@
-"""
-Atividades SIMULADAS para o banco de demonstracao (pedido do João, 28/10/2026).
-
-O B1 so traz a QUANTIDADE de atividades pendentes de cada aluno
-(indicadores_academicos.atividades_pendentes). Para o assistente responder
-"o que vence esta semana?", este script cria atividades com prazo em
-atividades_aluno, marcadas com simulada = TRUE, coerentes com o B1:
-
-- cada aluno fica com exatamente atividades_pendentes atividades sem entrega,
-  parte ja atrasada e parte vencendo nos proximos dias;
-- as demais (duas por turma) ja venceram e foram entregues.
-
-Os prazos sao contados a partir do dia em que o script roda. Nada do B1 e
-alterado. Quando a instituicao carregar as atividades reais, apague as
-simuladas:  DELETE FROM atividades_aluno WHERE simulada;
-
-    python -m scripts.simular_atividades            # so se ainda nao houver atividades
-    python -m scripts.simular_atividades --refazer  # apaga as simuladas e gera de novo (prazos atuais)
-"""
-
 import argparse
 import os
 import random
@@ -49,7 +29,7 @@ INSERIR = text("""
 
 
 def gerar(id_aluno: str, turmas: list[str], pendentes: int, hoje: date) -> list[dict]:
-    sorteio = random.Random(id_aluno)  # mesmo aluno, mesmas atividades
+    sorteio = random.Random(id_aluno)
     linhas, numero = [], {}
 
     def nova(turma: str, prazo: date, entregue: date | None) -> dict:
@@ -66,7 +46,6 @@ def gerar(id_aluno: str, turmas: list[str], pendentes: int, hoje: date) -> list[
             linhas.append(nova(turma, prazo, prazo - timedelta(days=sorteio.randint(0, 3))))
     for i in range(pendentes):
         turma = sorteio.choice(turmas)
-        # Cerca de um terco ja atrasada; o resto vence nas proximas tres semanas.
         dias = -sorteio.randint(1, 10) if i % 3 == 2 else sorteio.randint(0, 21)
         linhas.append(nova(turma, hoje + timedelta(days=dias), None))
     return linhas

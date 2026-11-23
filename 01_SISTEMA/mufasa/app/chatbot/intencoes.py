@@ -1,29 +1,15 @@
-"""
-Catalogo FECHADO de intencoes do chatbot (RN06, Anexo D.2 e E.2).
-
-A pergunta e classificada em uma destas intencoes por regras fixas. Se as
-regras nao reconhecem e a IA esta ligada, a IA pode sugerir uma intencao,
-mas so da lista INTENCOES_QUE_A_IA_PODE_SUGERIR, e o servidor confere.
-A IA nunca decide escopo, nunca escolhe consulta e nunca libera recusa.
-
-Ordem de verificacao: primeiro as recusas (burla, alteracao, outro aluno,
-juizo), depois as consultas de dados, por ultimo as informativas.
-"""
-
 import re
 from dataclasses import dataclass, field
 
 from app.chatbot.filtros import parece_busca
 from app.chatbot.texto import matriculas_citadas, normalizar
 
-# Recusas obrigatorias (E.2)
 BURLA = "TENTATIVA_DE_BURLA"
 ALTERACAO = "PEDIDO_DE_ALTERACAO"
 OUTRO_ALUNO = "DADO_DE_OUTRO_ALUNO"
 JUIZO = "JUIZO_SOBRE_PESSOA"
 PREVISAO_INDIVIDUAL = "QUEM_VAI_DESISTIR"
 
-# Dados do proprio aluno
 RESUMO_ACADEMICO = "RESUMO_ACADEMICO"
 NOTAS = "NOTAS"
 FREQUENCIA = "FREQUENCIA_E_FALTAS"
@@ -32,13 +18,11 @@ SITUACAO = "SITUACAO_NAS_DISCIPLINAS"
 PENDENCIAS = "ATIVIDADES_PENDENTES"
 MEU_RISCO = "MEU_NIVEL_DE_RISCO"
 
-# Equipe (docente, coordenacao, nucleo de apoio)
 RESUMO_RISCO = "RESUMO_DE_RISCO"
 MAIOR_RISCO = "ALUNOS_DE_MAIOR_RISCO"
 ALUNO_ESPECIFICO = "SITUACAO_DE_UM_ALUNO"
 BUSCA_ALUNOS = "BUSCA_DE_ALUNOS_POR_FILTRO"
 
-# Informativas
 SAUDACAO = "SAUDACAO"
 AGRADECIMENTO = "AGRADECIMENTO"
 AJUDA = "AJUDA"
@@ -54,7 +38,6 @@ RECUSAS = {BURLA, ALTERACAO, OUTRO_ALUNO, JUIZO}
 INTENCOES_DE_ALUNO = {RESUMO_ACADEMICO, NOTAS, FREQUENCIA, MEDIA, SITUACAO, PENDENCIAS, MEU_RISCO}
 INTENCOES_DE_EQUIPE = {RESUMO_RISCO, MAIOR_RISCO, ALUNO_ESPECIFICO, BUSCA_ALUNOS}
 
-# Sem dado nenhum: com a IA ligada, viram conversa livre (redacao.py).
 INTENCOES_DE_CONVERSA = {SAUDACAO, AGRADECIMENTO, AJUDA, ESTUDOS, FORA_DO_ESCOPO, NAO_ENTENDI}
 
 INTENCOES_QUE_A_IA_PODE_SUGERIR = (
@@ -67,7 +50,6 @@ def _re(*termos: str) -> re.Pattern:
     return re.compile(r"\b(?:" + "|".join(termos) + r")")
 
 
-# Tudo aqui e comparado com o texto normalizado (minusculo, sem acento).
 _BURLA = _re(
     r"ignor\w*\s+(?:\w+\s+){0,3}(?:regra|instruc|restric|limite|ordem|comando)",
     r"esquec\w*\s+(?:\w+\s+){0,3}(?:regra|instruc|restric)", r"desconsider\w*\s+(?:\w+\s+){0,3}regra",
@@ -224,11 +206,6 @@ _ASSUNTOS_QUE_CONTINUAM = {NOTAS, FREQUENCIA, SITUACAO, RESUMO_ACADEMICO}
 
 
 def retomar_assunto(intencao: str, texto: str, anteriores: list[str]) -> str:
-    """
-    Pergunta curta de continuacao ("e em Calculo II?", "e a frequencia dessa?")
-    que as regras nao reconheceram herda o assunto da pergunta anterior.
-    So vale para assuntos do proprio aluno que aceitam filtro por disciplina.
-    """
     if intencao != NAO_ENTENDI or not anteriores:
         return intencao
     t = normalizar(texto)

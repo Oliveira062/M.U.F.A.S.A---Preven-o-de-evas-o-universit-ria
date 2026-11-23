@@ -1,21 +1,3 @@
-"""
-Cria o arquivo .env com senhas e chaves novas, geradas na hora.
-
-    python -m scripts.configurar            # instalacao local (PostgreSQL na maquina)
-    python -m scripts.configurar --docker   # para o docker compose
-    python -m scripts.configurar --chaves   # copia as chaves do groq.env para o .env existente
-
-Pergunta so o que a maquina precisa: endereco e senha do usuario postgres
-(local). Gera: senhas dos tres perfis de banco (mufasa_api, mufasa_chat,
-mufasa_calculo), JWT_SECRET de 64 caracteres e a chave Fernet dos dados de
-apoio. Nao sobrescreve um .env existente sem --sobrescrever (as senhas do
-banco ja montado deixariam de bater).
-
-Chave da Groq: fica no arquivo groq.env, ao lado do .env (ignorado pelo Git e
-pelo Docker). Este script copia para o .env so as linhas GROQ_*; o resto do
-.env nao muda. O INICIAR_MUFASA.bat roda --chaves a cada inicio.
-"""
-
 import argparse
 import getpass
 import secrets
@@ -80,7 +62,6 @@ CHAVES_PERMITIDAS = ("GROQ_API_KEY", "GROQ_MODELO", "GROQ_TEMPERATURA", "CHAT_IA
 
 
 def ler_chaves(origem) -> dict:
-    """Linhas CHAVE=valor do groq.env, so das chaves permitidas (o resto e ignorado)."""
     chaves = {}
     if not origem.exists():
         return chaves
@@ -96,7 +77,6 @@ def ler_chaves(origem) -> dict:
 
 
 def aplicar_chaves(destino, chaves: dict) -> list[str]:
-    """Troca ou acrescenta as chaves no .env, sem mexer nas outras linhas. Devolve os nomes alterados."""
     linhas = destino.read_text(encoding="utf-8").splitlines()
     pendentes, alteradas = dict(chaves), []
     for i, linha in enumerate(linhas):

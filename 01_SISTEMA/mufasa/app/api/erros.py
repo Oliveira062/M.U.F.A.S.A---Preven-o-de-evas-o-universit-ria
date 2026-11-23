@@ -1,11 +1,3 @@
-"""
-Formato padronizado de erro (SRS Secao 3.3 e Anexo D.1).
-
-Nenhuma resposta de erro leva rastreamento de pilha, nome de tabela,
-consulta SQL ou o valor que o usuario enviou. O detalhe tecnico fica so
-no log do servidor, ligado pelo identificador da requisicao.
-"""
-
 import logging
 
 from fastapi import FastAPI, HTTPException, Request
@@ -29,12 +21,9 @@ TITULOS = {
     500: "Erro interno",
 }
 
-# Mensagem unica para "nao existe" e "nao pode ver": quem pergunta por outro
-# aluno nao descobre se a matricula existe (RN07).
 MSG_ACESSO_NEGADO = "Você não tem permissão para acessar os dados deste aluno, ou ele não existe."
 
 
-# Mensagens de validacao em portugues claro (RN10). O Pydantic responde em ingles.
 MENSAGENS_VALIDACAO = {
     "missing": "Campo obrigatório.",
     "extra_forbidden": "Campo não permitido.",
@@ -66,8 +55,6 @@ def resposta_erro(request: Request, status: int, detalhe: str, extra: dict | Non
     }
     if extra:
         corpo.update(extra)
-    # O erro 500 sai do Starlette por fora do middleware de seguranca: os
-    # cabecalhos essenciais vao aqui tambem, junto do codigo da requisicao.
     cabecalhos = {"X-Request-ID": corpo["requisicao"], "Cache-Control": "no-store",
                   "X-Content-Type-Options": "nosniff", "Content-Security-Policy": "default-src 'none'",
                   **(cabecalhos or {})}
@@ -75,7 +62,6 @@ def resposta_erro(request: Request, status: int, detalhe: str, extra: dict | Non
 
 
 def registrar_tratadores(app: FastAPI, registrar_erro=None) -> None:
-    """registrar_erro(evento, id_requisicao): grava o erro nos registros tecnicos, sem dado pessoal."""
     @app.exception_handler(StarletteHTTPException)
     async def _http(request: Request, exc: StarletteHTTPException):
         detalhe = exc.detail if isinstance(exc.detail, str) else TITULOS.get(exc.status_code, "Erro")
@@ -83,9 +69,6 @@ def registrar_tratadores(app: FastAPI, registrar_erro=None) -> None:
 
     @app.exception_handler(RequestValidationError)
     async def _validacao(request: Request, exc: RequestValidationError):
-        # O tratador padrao do FastAPI devolve o campo "input", que repete o valor
-        # enviado - inclusive a senha de um login mal formatado. Aqui so vao
-        # o nome do campo e a mensagem.
         campos = [
             {"campo": ".".join(str(p) for p in erro.get("loc", ()) if p != "body"),
              "mensagem": MENSAGENS_VALIDACAO.get(erro.get("type"), "Valor inválido.")}
@@ -95,7 +78,6 @@ def registrar_tratadores(app: FastAPI, registrar_erro=None) -> None:
 
     @app.exception_handler(Exception)
     async def _inesperado(request: Request, exc: Exception):
-        # Pilha completa so no log do servidor.
         log.exception("Erro nao tratado: req=%s %s %s", _id_requisicao(request), request.method,
                       getattr(request.scope.get("route"), "path", "rota-desconhecida"))
         if registrar_erro is not None:

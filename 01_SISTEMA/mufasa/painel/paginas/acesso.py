@@ -1,5 +1,3 @@
-"""Login com seletor de perfil e primeiro acesso (termo LGPD e troca de senha) - Figma Parte 1."""
-
 import html
 from pathlib import Path
 

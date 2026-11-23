@@ -1,15 +1,3 @@
-"""
-Trilha de auditoria (LGPD art. 37, SRS RN07 e CA14).
-
-Cada registro grava em transacao PROPRIA: um acesso negado termina em erro
-e desfaz a transacao da requisicao, mas o registro da tentativa precisa
-ficar. Por isso a auditoria nao usa a conexao do endpoint.
-
-O que NAO entra no registro: senha, token, valores de dado pessoal. Entra
-quem, quando, o que, sobre qual aluno, com que resultado e de onde.
-Retencao do IP: 6 meses (Marco Civil da Internet, art. 15).
-"""
-
 import logging
 from datetime import datetime, timezone
 
@@ -39,6 +27,5 @@ def registrar(request: Request, operacao: str, resultado: str, *, usuario=None,
         with banco.obter_engine().begin() as conexao:
             conexao.execute(REGISTRAR_AUDITORIA, valores)
     except Exception:
-        # Falha de auditoria nao pode ficar silenciosa.
         log.exception("Falha ao gravar auditoria da requisicao %s", valores["id_requisicao"])
         raise

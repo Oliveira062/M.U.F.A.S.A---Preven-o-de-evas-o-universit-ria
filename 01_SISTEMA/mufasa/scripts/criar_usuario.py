@@ -1,14 +1,3 @@
-"""
-Cria um usuario do MUFASA. A senha e digitada sem eco e so o hash bcrypt
-vai para o banco. Nao existe usuario nem senha padrao no sistema.
-
-Usa DATABASE_URL_ADMIN (dono do banco), porque o perfil mufasa_api nao
-pode inserir usuarios.
-
-    python -m scripts.criar_usuario --login ALU0001 --perfil ALUNO --aluno ALU0001
-    python -m scripts.criar_usuario --login prof.ricardo --perfil DOCENTE --professor PROF001
-"""
-
 import argparse
 import getpass
 import os

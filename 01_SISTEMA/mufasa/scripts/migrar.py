@@ -1,21 +1,3 @@
-"""
-Migracoes do banco: como evoluir o esquema sem montar tudo de novo.
-
-    python -m scripts.migrar            # aplica as pendentes
-    python -m scripts.migrar --listar   # mostra aplicadas e pendentes
-    python -m scripts.migrar --nova "adicionar coluna x"   # cria o proximo arquivo
-
-Cada mudanca de esquema vira um arquivo novo em sql/migracoes/, numerado:
-    sql/migracoes/002_adicionar_coluna_x.sql
-Os arquivos rodam em ordem de nome, cada um em uma transacao; o que ja foi
-aplicado fica na tabela esquema_migracoes (nome e hash). Arquivo aplicado
-nao se edita: se precisar corrigir, crie outro. Se alguem editar um arquivo
-ja aplicado, o script avisa (hash diferente) e para.
-
-Conecta como dono do banco: DATABASE_URL_ADMIN (no .env), por exemplo
-postgresql+psycopg://postgres:SENHA@localhost:5432/mufasa
-"""
-
 import argparse
 import hashlib
 import os
@@ -89,7 +71,7 @@ def migrar(url: str, listar: bool = False) -> int:
         return 0
     for p in pendentes:
         print(f"aplicando {p.name} ...", end=" ")
-        with engine.begin() as c:  # tudo ou nada por arquivo
+        with engine.begin() as c:
             c.exec_driver_sql(p.read_text(encoding="utf-8"))
             c.execute(REGISTRAR, {"arquivo": p.name, "sha256": resumo(p)})
         print("ok")

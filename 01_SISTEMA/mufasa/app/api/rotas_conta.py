@@ -1,11 +1,3 @@
-"""
-Conta do usuario logado: primeiro acesso (senha provisoria e termo),
-renovacao da sessao e notificacoes.
-
-Estas rotas usam obter_usuario_atual, e nao obter_usuario_liberado: sao
-justamente o caminho para sair da pendencia de primeiro acesso.
-"""
-
 import re
 from datetime import datetime, timezone
 from typing import Annotated
@@ -47,7 +39,6 @@ class PedidoSenha(Fechado):
 
 
 def problema_da_senha(nova: str, login: str) -> str | None:
-    """Regras que dependem da conta (o formato ja foi conferido no esquema)."""
     if login.lower() in nova.lower():
         return "A nova senha não pode conter o seu login."
     if len(set(nova)) < 5:
@@ -71,7 +62,6 @@ def minha_conta(usuario: Usuario = Depends(obter_usuario_atual), conexao: Connec
 @router_conta.post("/conta/termo", status_code=204)
 def aceitar_termo(pedido: PedidoTermo, request: Request, usuario: Usuario = Depends(obter_usuario_atual),
                   conexao: Connection = Depends(obter_conexao)):
-    """Aceite do termo de uso e privacidade do primeiro acesso (LGPD art. 9)."""
     if pedido.versao != VERSAO_TERMO:
         raise erro_http(409, f"A versão vigente do termo é {VERSAO_TERMO}. Recarregue a página.")
     if not pedido.aceito:
@@ -104,10 +94,6 @@ def trocar_senha(pedido: PedidoSenha, request: Request, usuario: Usuario = Depen
 @router_conta.post("/auth/renovar", response_model=RespostaToken, tags=["autenticacao"])
 def renovar_sessao(request: Request, usuario: Usuario = Depends(obter_usuario_atual),
                    carga: dict = Depends(obter_carga_token), conexao: Connection = Depends(obter_conexao)):
-    """
-    Troca um token ainda valido por um novo e revoga o antigo. O painel chama
-    enquanto ha uso; parado por 30 minutos, a sessao expira (RN12).
-    """
     conexao.execute(sql.REVOGAR_TOKEN, {"jti": carga["jti"],
                                         "expira_em": datetime.fromtimestamp(carga["exp"], tz=timezone.utc)})
     conexao.commit()

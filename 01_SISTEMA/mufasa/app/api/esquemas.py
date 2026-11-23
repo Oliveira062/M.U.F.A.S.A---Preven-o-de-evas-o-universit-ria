@@ -1,11 +1,3 @@
-"""
-Contratos de entrada e saida (Pydantic).
-
-Toda entrada tem tipo, tamanho e formato fechados, e campos desconhecidos
-sao recusados (extra="forbid"): o FastAPI rejeita com 422 antes de o dado
-chegar perto do banco (SRS RN08, RN11).
-"""
-
 from datetime import date, datetime
 from enum import Enum
 from typing import Annotated
@@ -13,9 +5,6 @@ from typing import Annotated
 from fastapi import Path, Query
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-# SRS RN12: matricula e texto com exatamente 7 digitos. O banco simulado do
-# B1 usa o formato ALU0000; a segunda alternativa sai quando o B1 migrar
-# para a matricula oficial.
 PADRAO_MATRICULA = r"^(?:\d{7}|ALU\d{4})$"
 
 Matricula = Annotated[str, Path(pattern=PADRAO_MATRICULA, description="Matricula do aluno (7 digitos)")]
@@ -24,10 +13,6 @@ Matricula = Annotated[str, Path(pattern=PADRAO_MATRICULA, description="Matricula
 class Fechado(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
-
-# ---------------------------------------------------------------------------
-# Autenticacao
-# ---------------------------------------------------------------------------
 
 class Perfil(str, Enum):
     ALUNO = "ALUNO"
@@ -62,10 +47,6 @@ class RespostaToken(BaseModel):
     deve_trocar_senha: bool = False
     termo_pendente: bool = False
 
-
-# ---------------------------------------------------------------------------
-# Alunos e score
-# ---------------------------------------------------------------------------
 
 class Ordem(str, Enum):
     nome = "nome"
@@ -144,12 +125,8 @@ class RespostaAgregados(BaseModel):
     observacao: str = "Grupos com menos alunos que o mínimo foram suprimidos para impedir reidentificação."
 
 
-# ---------------------------------------------------------------------------
-# LGPD: consentimento e direitos do titular
-# ---------------------------------------------------------------------------
-
 class Finalidade(str, Enum):
-    DADOS_SAUDE = "DADOS_SAUDE"  # art. 11, I: consentimento especifico e destacado
+    DADOS_SAUDE = "DADOS_SAUDE"
 
 
 class PedidoConsentimento(Fechado):
@@ -167,14 +144,14 @@ class Consentimento(BaseModel):
 
 
 class TipoSolicitacao(str, Enum):
-    CONFIRMACAO_ACESSO = "CONFIRMACAO_ACESSO"      # art. 18, I e II
-    CORRECAO = "CORRECAO"                          # art. 18, III
-    ANONIMIZACAO_ELIMINACAO = "ANONIMIZACAO_ELIMINACAO"  # art. 18, IV e VI
-    PORTABILIDADE = "PORTABILIDADE"                # art. 18, V
-    INFORMACAO_COMPARTILHAMENTO = "INFORMACAO_COMPARTILHAMENTO"  # art. 18, VII
-    REVOGACAO_CONSENTIMENTO = "REVOGACAO_CONSENTIMENTO"  # art. 18, IX
-    REVISAO_DECISAO_AUTOMATIZADA = "REVISAO_DECISAO_AUTOMATIZADA"  # art. 20
-    OPOSICAO = "OPOSICAO"                          # art. 18, par. 2
+    CONFIRMACAO_ACESSO = "CONFIRMACAO_ACESSO"
+    CORRECAO = "CORRECAO"
+    ANONIMIZACAO_ELIMINACAO = "ANONIMIZACAO_ELIMINACAO"
+    PORTABILIDADE = "PORTABILIDADE"
+    INFORMACAO_COMPARTILHAMENTO = "INFORMACAO_COMPARTILHAMENTO"
+    REVOGACAO_CONSENTIMENTO = "REVOGACAO_CONSENTIMENTO"
+    REVISAO_DECISAO_AUTOMATIZADA = "REVISAO_DECISAO_AUTOMATIZADA"
+    OPOSICAO = "OPOSICAO"
 
 
 class PedidoSolicitacao(Fechado):

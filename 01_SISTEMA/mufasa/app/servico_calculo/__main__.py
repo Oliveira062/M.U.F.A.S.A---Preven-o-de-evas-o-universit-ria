@@ -1,19 +1,3 @@
-"""
-Servico de calculo do MUFASA: mantem score, alertas e paineis em tempo real.
-
-    CALCULO_DATABASE_URL=postgresql+psycopg://mufasa_calculo:...@host/mufasa python -m app.servico_calculo
-
-Processo separado da API: se ele parar, a API e o painel continuam no ar
-mostrando o ultimo score calculado (Plano, T27: degradacao controlada), e o
-painel avisa que o calculo esta parado pelo sinal de vida. Se a API parar,
-o calculo continua.
-
-Laco: espera NOTIFY 'mufasa_recalculo' (gatilhos de sql/painel.sql) por ate
-5 segundos, processa a fila, aplica cargas confirmadas, confere prazos
-vencidos e grava o sinal de vida. Banco fora do ar: tenta de novo com
-espera crescente, sem derrubar o processo.
-"""
-
 import logging
 import os
 import signal
@@ -48,7 +32,6 @@ def _sinal_parar(*_):
 
 
 def carregar_parametros(engine: Engine) -> Parametros:
-    """Versao vigente do banco. Valor incoerente nao entra: o calculo para e avisa (RN22)."""
     with engine.connect() as conexao:
         valores = {l["chave"]: float(l["valor"]) for l in conexao.execute(sql.PARAMETROS_VIGENTES).mappings()}
         versao = conexao.execute(sql.VERSAO_VIGENTE).scalar() or 0
@@ -71,7 +54,6 @@ def _registrar(engine: Engine, nivel: str, evento: str, mensagem: str = "") -> N
 
 
 def _escutar(url_sqlalchemy: str):
-    """Conexao psycopg crua so para LISTEN (o SQLAlchemy nao expoe notificacoes)."""
     url = make_url(url_sqlalchemy).set(drivername="postgresql")
     conexao = psycopg.connect(url.render_as_string(hide_password=False), autocommit=True)
     conexao.execute("LISTEN mufasa_recalculo")

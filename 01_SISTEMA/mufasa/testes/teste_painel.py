@@ -1,13 +1,3 @@
-"""
-Testes do painel (Streamlit) sem navegador, com o AppTest do proprio Streamlit.
-
-Conferem que cada pagina carrega sem excecao e que o painel nao derruba a
-tela quando a API esta fora do ar (isolamento de falhas). Os fluxos com
-dados sao cobertos por teste_fluxos.py, direto na API que o painel usa.
-
-    pytest testes/teste_painel.py -v
-"""
-
 import os
 import sys
 from pathlib import Path
@@ -22,7 +12,6 @@ AppTest = pytest.importorskip("streamlit.testing.v1").AppTest
 
 @pytest.fixture
 def app_sem_api(monkeypatch):
-    # Porta onde nada escuta: simula a API fora do ar.
     monkeypatch.setenv("MUFASA_API_URL", "http://127.0.0.1:9")
     monkeypatch.chdir(PAINEL)
     return AppTest.from_file(str(PAINEL / "app.py"), default_timeout=30)
@@ -67,15 +56,12 @@ def test_botao_de_acessibilidade_so_carrega_vlibras_depois_de_confirmar():
     import ui
 
     js = (PAINEL / "acessibilidade.js").read_text(encoding="utf-8")
-    # VLibras desligado por padrao e baixado so dentro de carregarVLibras()
     assert re.search(r"libras:\s*false", js)
     corpo = js.split("function carregarVLibras()", 1)[1].split("function desligarVLibras()", 1)[0]
     assert "VLIBRAS + \"/vlibras-plugin.js\"" in corpo
     assert js.count("vlibras-plugin.js") == 1
     assert js.count("carregarVLibras();") == 1 and "if (pref.libras) carregarVLibras();" in js
-    # o "Ativar" so aparece no aviso, e e ele que liga a preferencia
     assert 'acao === "libras-sim") { aviso.hidden = true; pref.libras = true; }' in js
-    # o codigo vai para a pagina sem fechar a tag <script> antes da hora
     carregador = ui._carregador_acessibilidade()
     assert carregador.count("</") == 1 and carregador.endswith("</script>")
 

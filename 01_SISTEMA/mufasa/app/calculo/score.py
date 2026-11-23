@@ -1,22 +1,3 @@
-"""
-Score de risco de evasao do MUFASA (camada A, deterministica).
-
-Implementa o SRS v1.1, Anexo A, linha a linha. Cada funcao cita a secao
-que implementa (definicao de pronto do Plano de Construcao v1.1, Secao 4).
-
-ESCALA: 0 = trajetoria compativel com a conclusao, 100 = risco maximo.
-Toda pontuacao de fator vai de 0 a 100, ou e None quando o dado nao existe
-(RN20: dado ausente nunca e preenchido com valor medio ou padrao).
-
-Nenhum limiar, peso ou faixa e constante aqui: tudo vem de Parametros
-(app/calculo/parametros.py, RN22). O resultado guarda a versao usada.
-
-Historico: a v2.3 (B2) usava curvas e degraus proprios em I1 abaixo de 4,0,
-I2 abaixo de 60%, I3, I4, I5, I6, I7 e I11, nao tinha modificadores (A.5),
-avaliava S1 so na frequencia geral e mostrava apenas os 3 maiores fatores.
-A v3.0 segue o SRS em todos esses pontos (docs/REVISAO_METRICAS_SRS.md).
-"""
-
 import math
 from dataclasses import dataclass
 
@@ -25,7 +6,7 @@ from app.calculo.parametros import PADRAO, PESOS_POR_FATOR, Parametros
 VERSAO_MODELO = "deterministico-v1.1"
 VERSAO_CODIGO = "3.0"
 
-FATORES = tuple(PESOS_POR_FATOR)  # ordem do SRS: I1 a I11
+FATORES = tuple(PESOS_POR_FATOR)
 ID_FATOR = {f: f"I{i}" for i, f in enumerate(FATORES, start=1)}
 
 ROTULOS = {
@@ -42,17 +23,14 @@ ROTULOS = {
     "dependentes": "dependentes sob cuidado",
 }
 
-# Exibicao: o codigo do nivel continua sem acento (contrato da API).
 NOMES_NIVEL = {"BAIXO": "baixo", "MODERADO": "moderado", "ALTO": "alto", "CRITICO": "crítico",
                "INDETERMINADO": "indeterminado"}
 ORDEM_NIVEL = {"INDETERMINADO": -1, "BAIXO": 0, "MODERADO": 1, "ALTO": 2, "CRITICO": 3}
 
-# O fator tem alavanca direta da instituicao? (B.7, campo "acionavel")
 ACIONAVEL = {"notas": True, "frequencia": True, "reprovacao": True, "engajamento_ava": True,
              "financeiro": True, "trabalho": False, "deslocamento": True, "saude_mental": True,
              "saude_fisica": False, "moradia": True, "dependentes": True}
 
-# Acao institucional por nivel (RN02).
 RECOMENDACAO_NIVEL = {
     "BAIXO": "Acompanhamento regular.",
     "MODERADO": "Alerta preventivo: lista de observação, com o docente notificado.",
@@ -62,11 +40,10 @@ RECOMENDACAO_NIVEL = {
 }
 
 AVISO_PESOS = ("Score calculado por modelo determinístico de pesos heurísticos, versão 1.1. Não constitui "
-               "previsão individual nem decisão automatizada.")  # RN23
+               "previsão individual nem decisão automatizada.")
 
 
 def _valido(valor, minimo: float, maximo: float):
-    """float finito dentro da faixa; qualquer outra coisa vira None (RN08)."""
     if valor is None or isinstance(valor, bool):
         return None
     try:
@@ -79,12 +56,10 @@ def _valido(valor, minimo: float, maximo: float):
 
 
 def arredondar(valor: float) -> int:
-    """Arredondamento comercial (0,5 sobe). round() do Python arredonda 62,5 para 62."""
     return int(math.floor(valor + 0.5))
 
 
 def _num(valor: float, casas: int = 1, fixo: bool = False) -> str:
-    """Numero no formato brasileiro: 5,4 e nao 5.4. Sem fixo, 68,0 vira 68."""
     texto = f"{valor:.{casas}f}".replace(".", ",")
     if casas and not fixo and texto.endswith("," + "0" * casas):
         texto = texto[:-(casas + 1)]
@@ -92,24 +67,13 @@ def _num(valor: float, casas: int = 1, fixo: bool = False) -> str:
 
 
 def _reta(trechos, x):
-    """Linearidade por partes (B.2): cada trecho e (inicio, fim, pontos_inicio, pontos_fim)."""
     for inicio, fim, p0, p1 in trechos:
         if inicio <= x < fim:
             return p0 + (p1 - p0) * (x - inicio) / (fim - inicio)
     return None
 
 
-# ---------------------------------------------------------------------------
-# Classificacao (RN02)
-# ---------------------------------------------------------------------------
-
 def classificar_nivel_risco(score, p: Parametros = PADRAO) -> str:
-    """
-    Baixo 0-25, Moderado 26-50, Alto 51-75, Critico 76-100 (CA09).
-
-    >>> [classificar_nivel_risco(s) for s in (25, 26, 50, 51, 75, 76)]
-    ['BAIXO', 'MODERADO', 'MODERADO', 'ALTO', 'ALTO', 'CRITICO']
-    """
     if score is None:
         return "INDETERMINADO"
     if score <= p["CORTE_BAIXO"]:
@@ -121,17 +85,7 @@ def classificar_nivel_risco(score, p: Parametros = PADRAO) -> str:
     return "CRITICO"
 
 
-# ---------------------------------------------------------------------------
-# Os onze indicadores (Anexo A, B.2)
-# ---------------------------------------------------------------------------
-
 def risco_por_nota(media, p: Parametros = PADRAO):
-    """
-    B.2.1 I1. M >= 8 -> 0; 6 a 8 -> 0 a 40; 4 a 6 -> 40 a 80; M < 4 -> 80 a 100.
-
-    >>> [round(risco_por_nota(m), 1) for m in (7.0, 5.0, 3.0)]
-    [20.0, 60.0, 85.0]
-    """
     m = _valido(media, 0.0, 10.0)
     if m is None:
         return None
@@ -142,12 +96,6 @@ def risco_por_nota(media, p: Parametros = PADRAO):
 
 
 def risco_por_frequencia(frequencia, p: Parametros = PADRAO):
-    """
-    B.2.2 I2. F >= 90 -> 0; 75 a 90 -> 0 a 40; 60 a 75 -> 40 a 80; F < 60 -> 80 a 100.
-
-    >>> round(risco_por_frequencia(82.0), 1), round(risco_por_frequencia(68.0), 1)
-    (21.3, 58.7)
-    """
     f = _valido(frequencia, 0.0, 100.0)
     if f is None:
         return None
@@ -158,13 +106,6 @@ def risco_por_frequencia(frequencia, p: Parametros = PADRAO):
 
 
 def risco_por_reprovacao(taxa_pct, reprovou_pre_requisito: bool = False, terceira_tentativa: bool = False):
-    """
-    B.2.3 I3. TR em %: 0 -> 0; ate 15 -> 25; ate 30 -> 50; ate 50 -> 75; acima -> 100.
-    +15 com reprovacao em pre-requisito, +20 na terceira tentativa, teto de 100.
-
-    >>> risco_por_reprovacao(35.0, reprovou_pre_requisito=True)
-    90.0
-    """
     tr = _valido(taxa_pct, 0.0, 100.0)
     if tr is None:
         return None
@@ -185,10 +126,6 @@ def risco_por_reprovacao(taxa_pct, reprovou_pre_requisito: bool = False, terceir
 
 def risco_por_engajamento_ava(engajamento=None, taxa_entrega=None, dias_sem_acesso=None,
                               p: Parametros = PADRAO):
-    """
-    B.2.4 I4. So entra com integracao ativa com o AVA (sem ela, quem chama passa
-    tudo vazio e o fator fica ausente). Avaliado do pior para o melhor caso.
-    """
     eng = _valido(engajamento, 0.0, 1000.0)
     ent = _valido(taxa_entrega, 0.0, 1.0)
     dias = _valido(dias_sem_acesso, 0.0, 10_000.0)
@@ -205,15 +142,6 @@ def risco_por_engajamento_ava(engajamento=None, taxa_entrega=None, dias_sem_aces
 
 def risco_por_renda_per_capita(renda_sm, auxilio_ativo: bool = False, mensalidades_atraso: int = 0,
                                cadunico_sem_renda: bool = False, p: Parametros = PADRAO):
-    """
-    B.2.5 I5. Renda por pessoa em salarios minimos:
-    ate 0,25 -> 100; ate 0,5 -> 85; abaixo de 1,0 -> 60; de 1,0 a 1,5 -> 30; acima de 1,5 -> 0.
-    +20 com uma mensalidade em atraso, +35 com duas ou mais; -20 com auxilio ativo.
-    Inscricao no CadUnico sem renda informada adota 85.
-
-    >>> risco_por_renda_per_capita(0.40), risco_por_renda_per_capita(0.40, auxilio_ativo=True)
-    (85.0, 65.0)
-    """
     r = _valido(renda_sm, 0.0, 1000.0)
     if r is None:
         if not cadunico_sem_renda:
@@ -237,13 +165,6 @@ def risco_por_renda_per_capita(renda_sm, auxilio_ativo: bool = False, mensalidad
 
 def risco_por_trabalho(horas_semana, mesmo_turno: bool = False, estagio_na_area: bool = False,
                        informal: bool = False, p: Parametros = PADRAO):
-    """
-    B.2.6 I6. Nao trabalha -> 0; 1 a 20 h -> 20; 21 a 30 -> 50; 31 a 40 -> 75; acima de 40 -> 100.
-    Mesmo turno das aulas forca 100; estagio na area -15; trabalho informal +10.
-
-    >>> risco_por_trabalho(15, mesmo_turno=True), risco_por_trabalho(20, estagio_na_area=True)
-    (100.0, 5.0)
-    """
     h = _valido(horas_semana, 0.0, 168.0)
     if h is None:
         return None
@@ -265,13 +186,6 @@ def risco_por_trabalho(horas_semana, mesmo_turno: bool = False, estagio_na_area:
 
 
 def risco_por_deslocamento(minutos, dois_ou_mais_onibus: bool = False, p: Parametros = PADRAO):
-    """
-    B.2.7 I7. Um trajeto: ate 20 min -> 0; 21 a 40 -> 25; 41 a 60 -> 50; 61 a 90 -> 75;
-    acima de 90 -> 100. +15 com dois ou mais onibus.
-
-    >>> [risco_por_deslocamento(m) for m in (20, 35, 60, 75, 120)]
-    [0.0, 25.0, 50.0, 75.0, 100.0]
-    """
     m = _valido(minutos, 0.0, 1440.0)
     if m is None:
         return None
@@ -303,12 +217,10 @@ DESCRICAO_CATEGORIA = {
 
 
 def risco_por_categoria(tabela: dict, categoria):
-    """B.2.8 a B.2.10: categoria declarada -> pontuacao; nao informado -> ausente."""
     return tabela.get(categoria) if isinstance(categoria, str) else None
 
 
 def risco_por_dependentes(quantidade, cuidado_continuo: bool = False):
-    """B.2.11 I11. Nenhum -> 0; 1 -> 40; 2 ou mais -> 70; cuidado continuo -> 100."""
     q = _valido(quantidade, 0.0, 50.0)
     if q is None:
         return None
@@ -318,10 +230,6 @@ def risco_por_dependentes(quantidade, cuidado_continuo: bool = False):
         return 100.0
     return 40.0 if q < 2 else 70.0
 
-
-# ---------------------------------------------------------------------------
-# Calculo consolidado
-# ---------------------------------------------------------------------------
 
 @dataclass
 class Fator:
@@ -334,7 +242,6 @@ class Fator:
 
 
 def _fatores(d: dict, p: Parametros) -> dict[str, Fator]:
-    """Calcula os indicadores disponiveis, cada um com a frase de RN04 (numero concreto)."""
     fatores: dict[str, Fator] = {}
 
     def add(nome, bruto, unidade, pontos, frase):
@@ -441,7 +348,6 @@ def _fatores(d: dict, p: Parametros) -> dict[str, Fator]:
 
 
 def _modificadores(d: dict, fatores: dict[str, Fator]) -> list[dict]:
-    """A.5 / B.5. Aplicados depois da soma, com teto de 100 e piso de 0."""
     mods = []
     variacao = _valido(d.get("variacao_media"), -10, 10)
     financeiro = fatores.get("financeiro")
@@ -468,7 +374,6 @@ def _modificadores(d: dict, fatores: dict[str, Fator]) -> list[dict]:
 
 
 def _sobreposicoes(d: dict, p: Parametros) -> list[dict]:
-    """A.6 / B.6. Nivel minimo por fato consumado, independente do score."""
     regras = []
     minima = p["FREQUENCIA_MINIMA"]
     if d.get("periodo_em_andamento", True):
@@ -514,13 +419,6 @@ def _fator_json(f: Fator, peso_disponivel: float, soma_pontos: float) -> dict:
 
 
 def calcular_score_aluno(dados_aluno: dict, parametros: Parametros = PADRAO) -> dict:
-    """
-    A.4 / B.4: Score = soma(peso x pontuacao x disponivel) / soma(peso x disponivel).
-
-    Completude = soma dos pesos disponiveis: >= 70% normal; 40% a 69% parcial
-    (Critico so por sobreposicao); < 40% Indeterminado (RN01, CA12). Depois da
-    soma entram os modificadores (A.5) e, por fim, as sobreposicoes (A.6).
-    """
     p = parametros
     fatores = _fatores(dados_aluno, p)
     peso_disponivel = sum(f.peso for f in fatores.values())
@@ -544,7 +442,6 @@ def calcular_score_aluno(dados_aluno: dict, parametros: Parametros = PADRAO) -> 
 
     if completude * 100 < p["COMPLETUDE_MINIMA"] - 1e-9:
         nivel, origem = "INDETERMINADO", "COMPLETUDE"
-        # Fato consumado (S1 a S4) vale mesmo sem dados suficientes para o score.
         if sobreposicoes:
             nivel, origem = max((s["nivel"] for s in sobreposicoes), key=ORDEM_NIVEL.get), "SOBREPOSICAO"
         return {**resultado, "score": None, "nivel": nivel, "nivel_origem": origem, "fatores_principais": [],
@@ -562,7 +459,6 @@ def calcular_score_aluno(dados_aluno: dict, parametros: Parametros = PADRAO) -> 
         if ORDEM_NIVEL[regra["nivel"]] > ORDEM_NIVEL[nivel]:
             nivel, origem = regra["nivel"], "SOBREPOSICAO"
 
-    # RN04: no minimo os 3 maiores e todos com pontuacao >= 50, por contribuicao decrescente.
     principais = [f.fator for i, f in enumerate(ordenados) if (i < 3 and f.pontuacao > 0) or f.pontuacao >= 50]
 
     return {
@@ -579,7 +475,6 @@ def calcular_score_aluno(dados_aluno: dict, parametros: Parametros = PADRAO) -> 
 
 
 def calcular_tendencia(scores: list) -> str | None:
-    """RN09: melhora, estavel, piora ou piora sustentada (duas altas seguidas)."""
     serie = [s for s in scores if s is not None]
     if len(serie) < 2:
         return None
@@ -593,7 +488,6 @@ def calcular_tendencia(scores: list) -> str | None:
 
 
 def explicar_score(resultado: dict) -> str:
-    """Frase-resumo do score para o painel e o chatbot (RN04, RN10)."""
     nivel = resultado.get("nivel")
     if resultado.get("score") is None:
         if nivel == "INDETERMINADO":

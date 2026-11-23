@@ -1,14 +1,3 @@
-"""
-Perfis e escopo de acesso (SRS Anexo E, RN07, RN17).
-
-Duas perguntas, sempre no servidor e sempre nesta ordem:
-1. O perfil pode usar este recurso?          -> auth.exigir_perfis
-2. Este usuario pode ver ESTE aluno?          -> verificar_escopo_aluno
-
-A segunda e a defesa contra BOLA/IDOR: trocar a matricula na URL nao
-basta para ver outro aluno.
-"""
-
 from fastapi import Request
 from sqlalchemy.engine import Connection
 
@@ -30,13 +19,10 @@ ENCARREGADO_DADOS = "ENCARREGADO_DADOS"
 
 PERFIS = (ALUNO, DOCENTE, COORDENACAO, NUCLEO_APOIO, FINANCEIRO, DIRECAO, ADMIN, ENCARREGADO_DADOS)
 
-# Perfis que leem dados individuais de aluno. DIRECAO, ADMIN e ENCARREGADO
-# ficam fora por definicao do Anexo E.
 LEITURA_INDIVIDUAL = (ALUNO, DOCENTE, COORDENACAO, NUCLEO_APOIO, FINANCEIRO)
 
 NIVEIS_DE_ALERTA = ("ALTO", "CRITICO")
 
-# Fatores do score por grau de restricao (RN07).
 FATORES_SOCIOECONOMICOS = {"financeiro", "trabalho", "deslocamento", "moradia", "dependentes"}
 FATORES_SAUDE = {"saude_mental", "saude_fisica"}
 ROTULO_ENCAMINHADO = "fator encaminhado ao núcleo de apoio"
@@ -57,8 +43,6 @@ def _no_escopo(conexao: Connection, usuario: Usuario, id_aluno: str) -> bool:
         ).first() is not None
 
     if usuario.perfil in (NUCLEO_APOIO, FINANCEIRO):
-        # Anexo E: nucleo de apoio ve os alunos com alerta atribuido a ele;
-        # financeiro, os alunos com fator financeiro no alerta aberto.
         alerta = conexao.execute(ALERTA_ABERTO_DO_ALUNO, {"id_aluno": id_aluno}).mappings().first()
         if alerta is None:
             return False
@@ -70,7 +54,6 @@ def _no_escopo(conexao: Connection, usuario: Usuario, id_aluno: str) -> bool:
 
 
 def fatores_da_linha(valor) -> list[str]:
-    """fatores_principais vem como lista (PostgreSQL JSONB) ou texto JSON (SQLite dos testes)."""
     if not valor:
         return []
     return json.loads(valor) if isinstance(valor, str) else list(valor)
@@ -78,7 +61,6 @@ def fatores_da_linha(valor) -> list[str]:
 
 def verificar_escopo_aluno(request: Request, conexao: Connection, usuario: Usuario,
                            id_aluno: str, operacao: str) -> None:
-    """Barra e registra; a mensagem nao diz se o aluno existe."""
     if usuario.perfil not in LEITURA_INDIVIDUAL or not _no_escopo(conexao, usuario, id_aluno):
         auditoria.registrar(request, operacao, "NEGADO", usuario=usuario, id_aluno_alvo=id_aluno)
         raise erro_http(403, MSG_ACESSO_NEGADO)
@@ -86,22 +68,20 @@ def verificar_escopo_aluno(request: Request, conexao: Connection, usuario: Usuar
 
 
 def fator_visivel(perfil: str, fator: str) -> bool:
-    """O perfil pode ver o NOME deste fator?"""
     if perfil in (ALUNO, NUCLEO_APOIO):
         return True
     if fator in FATORES_SAUDE:
-        return False  # so o proprio aluno e o nucleo veem a natureza de dado de saude
+        return False
     if perfil == DOCENTE and fator in FATORES_SOCIOECONOMICOS:
         return False
     return True
 
 
 def valor_do_fator_visivel(perfil: str, fator: str) -> bool:
-    """O perfil pode ver o VALOR numerico do risco deste fator?"""
     if perfil in (ALUNO, NUCLEO_APOIO):
         return True
     if perfil == COORDENACAO and fator in FATORES_SOCIOECONOMICOS:
-        return False  # coordenacao ve faixa qualitativa, nao valor
+        return False
     return fator_visivel(perfil, fator)
 
 

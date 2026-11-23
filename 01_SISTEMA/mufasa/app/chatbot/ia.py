@@ -1,12 +1,3 @@
-"""
-Cliente da Groq (API compativel com a da OpenAI), via httpx.
-
-O que entra aqui ja passou por redacao.py: nenhum nome, matricula, nota,
-frequencia, dado de saude ou socioeconomico. A chave vem do .env e nunca
-aparece em log. Qualquer falha (sem chave, rede, tempo esgotado, resposta
-estranha) devolve None, e o chatbot usa o texto pronto.
-"""
-
 import logging
 
 import httpx
@@ -33,7 +24,6 @@ def completar(mensagens: list[dict], max_tokens: int = 350, temperatura: float =
         resposta.raise_for_status()
         conteudo = resposta.json()["choices"][0]["message"]["content"]
         return conteudo if isinstance(conteudo, str) else None
-    except Exception as exc:  # noqa: BLE001 - qualquer falha cai no texto pronto
-        # So o tipo do erro: a mensagem pode repetir o corpo enviado.
+    except Exception as exc:
         log.warning("IA indisponivel (%s); usando texto pronto", type(exc).__name__)
         return None

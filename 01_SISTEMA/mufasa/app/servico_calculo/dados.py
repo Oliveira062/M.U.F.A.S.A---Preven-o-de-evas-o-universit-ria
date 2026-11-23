@@ -1,27 +1,3 @@
-"""
-Ponte B1 -> calculo: le o banco e monta a entrada do score (Anexo A).
-
-So leitura, conversao de unidade e descarte de valor impossivel. Nenhuma
-regra de pontuacao aqui. O que o B1 nao tem fica AUSENTE (RN20), e o
-documento docs/REVISAO_METRICAS_SRS.md lista cada fator e sua origem:
-
-- I1 media: soma(nota_final x carga horaria) / soma(carga horaria) das
-  disciplinas do periodo mais recente (B.2.1).
-- I2 frequencia: frequencia das disciplinas ponderada pela carga horaria.
-  O B1 nao tem faltas nem aulas realizadas por disciplina (B.2.2 pede
-  faltas / aulas); a carga horaria e a proporcao das aulas.
-- I3 taxa de reprovacao: reprovadas / cursadas nas matriculas registradas.
-  O B1 nao tem matriculas de periodos anteriores nem pre-requisitos.
-- I5 renda: renda_per_capita (reais) / salario minimo da versao vigente;
-  auxilio_bolsa = auxilio de permanencia ativo.
-- I6 trabalho: horas_trabalho_dia x 5 dias uteis. Turno do trabalho,
-  estagio e informalidade nao existem no B1.
-- I7 deslocamento: tempo_deslocamento_min. Numero de onibus nao existe.
-- I4, I8, I9, I10, I11, S2, S3, S4, M4 e M5: sem dado no B1. Saude (I8, I9)
-  exigiria consentimento registrado (LGPD art. 11, RN16) e classificacao
-  pelo nucleo de apoio, e nunca e inferida de outro dado.
-"""
-
 import math
 from datetime import date
 from decimal import Decimal
@@ -62,14 +38,13 @@ def _sim(valor) -> bool:
 
 def _periodo_em_andamento(inicio, fim, hoje: date) -> bool:
     if inicio is None:
-        return True  # sem calendario cadastrado, nao se presume periodo encerrado
+        return True
     inicio = inicio if isinstance(inicio, date) else date.fromisoformat(str(inicio))
     fim = None if fim is None else fim if isinstance(fim, date) else date.fromisoformat(str(fim))
     return inicio <= hoje and (fim is None or hoje <= fim)
 
 
 def montar_dados(conexao: Connection, id_aluno: str, p: Parametros, hoje: date) -> tuple[dict, dict]:
-    """Devolve (entrada do score, contexto do aluno: curso e idade)."""
     aluno = conexao.execute(sql.ALUNO, {"id_aluno": id_aluno}).mappings().first()
     if aluno is None:
         raise LookupError("aluno inexistente")

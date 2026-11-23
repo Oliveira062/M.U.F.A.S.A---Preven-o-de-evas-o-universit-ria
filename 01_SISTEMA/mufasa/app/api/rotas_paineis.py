@@ -1,15 +1,3 @@
-"""
-Paineis da coordenacao (curso) e da gestao/direcao (instituicao), Anexo D.3.
-
-Tudo e lido do banco a cada chamada: score atual (vw_score_atual), alertas
-e historico. Nenhum numero fixo no codigo.
-
-Direcao (Anexo E, RN07, CA19): so agregados, sem nome nem matricula, e
-toda celula com menos alunos que MINIMO_GRUPO sai como suprimida. Havendo
-celula suprimida, o total do recorte e os percentuais tambem saem, para que
-ninguem chegue ao valor escondido por subtracao.
-"""
-
 from datetime import date, timedelta
 from enum import Enum
 from typing import Annotated
@@ -61,7 +49,6 @@ class Fator(str, Enum):
 
 
 def suprimir(valores: dict, minimo: int | None) -> tuple[dict, bool]:
-    """Celula entre 1 e minimo-1 vira None. Devolve tambem se houve supressao."""
     if not minimo:
         return dict(valores), False
     saida = {k: (None if v is not None and 0 < v < minimo else v) for k, v in valores.items()}
@@ -69,7 +56,6 @@ def suprimir(valores: dict, minimo: int | None) -> tuple[dict, bool]:
 
 
 class Recorte:
-    """Filtros combinaveis do painel (Anexo D.3), refletidos na URL pelo painel."""
 
     def __init__(self, semestre: Annotated[int | None, Query(ge=1, le=20)] = None, turno: Turno | None = None,
                  fator: Fator | None = None, tendencia: Tendencia | None = None,
@@ -116,7 +102,6 @@ def _distribuicao(linhas, minimo: int | None) -> tuple[list, int, bool]:
 def visao_geral(request: Request, recorte: Recorte = Depends(),
                 usuario: Usuario = Depends(exigir_perfis(COORDENACAO, DIRECAO)),
                 conexao: Connection = Depends(obter_conexao)):
-    """Alunos, distribuicao por nivel, alertas abertos e vencidos, variacao (Anexo D.3, Visao geral)."""
     filtros = recorte.parametros(usuario)
     p = parametros_vigentes(conexao)
     minimo = int(p["MINIMO_GRUPO"]) if usuario.perfil == DIRECAO else None
@@ -172,7 +157,6 @@ def analises(request: Request, recorte: Recorte = Depends(),
              dias: Annotated[int, Query(ge=7, le=365)] = DIAS_EVOLUCAO,
              usuario: Usuario = Depends(exigir_perfis(COORDENACAO, DIRECAO)),
              conexao: Connection = Depends(obter_conexao)):
-    """Evolucao do risco, fatores frequentes, comparacao e eficacia (Anexo D.3, Analises; RF25)."""
     filtros = recorte.parametros(usuario)
     p = parametros_vigentes(conexao)
     minimo = int(p["MINIMO_GRUPO"]) if usuario.perfil == DIRECAO else None
@@ -237,7 +221,6 @@ def analises(request: Request, recorte: Recorte = Depends(),
 
 
 def _eficacia(linhas, minimo: int) -> dict:
-    """RF25: permanencia de quem teve contato x quem nao teve, nos alertas encerrados."""
     grupos = {True: {"total": 0, "permaneceu": 0}, False: {"total": 0, "permaneceu": 0}}
     for l in linhas:
         g = grupos[bool(l["houve_contato"])]

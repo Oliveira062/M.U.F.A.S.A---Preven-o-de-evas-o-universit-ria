@@ -1,17 +1,3 @@
-"""
-Autenticacao: hash de senha, emissao e leitura do JWT, usuario atual.
-
-- Senha: bcrypt custo 12 (SRS RN18). Biblioteca bcrypt direta, sem passlib,
-  que esta sem manutencao.
-- JWT: PyJWT, algoritmo fixo na leitura (impede o ataque "alg: none" e a
-  troca de algoritmo), exp/iat/sub/jti obrigatorios, emissor e publico
-  conferidos, validade de 30 minutos (encerramento por inatividade, RN12).
-- Token so no cabecalho Authorization: Bearer. A API nao usa cookie de
-  sessao, o que elimina CSRF por construcao.
-- Perfil e escopo sao lidos do BANCO a cada requisicao, nao do token: um
-  usuario desativado perde o acesso na hora.
-"""
-
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -32,16 +18,11 @@ from app.config import obter_configuracao
 CUSTO_BCRYPT = 12
 LIMITE_BYTES_BCRYPT = 72
 
-# Hash valido de uma senha aleatoria, usado quando o login nao existe, para
-# que o tempo de resposta nao revele quais logins estao cadastrados.
 _HASH_FICTICIO = bcrypt.hashpw(uuid.uuid4().bytes, bcrypt.gensalt(CUSTO_BCRYPT))
 
 _bearer = HTTPBearer(auto_error=False)
 
 
-# Versao vigente do termo de primeiro acesso (docs/TERMOS_DE_USO.md e
-# docs/POLITICA_DE_PRIVACIDADE.md). Mudou o texto: suba a versao, e todos
-# aceitam de novo no proximo acesso.
 VERSAO_TERMO = "1.0"
 
 
@@ -84,7 +65,7 @@ def emitir_token(usuario_id: int, perfil: str) -> tuple[str, int]:
     validade = timedelta(minutes=cfg.jwt_expira_minutos)
     carga = {
         "sub": str(usuario_id),
-        "perfil": perfil,  # informativo para a interface; a API confere no banco
+        "perfil": perfil,
         "iat": agora,
         "nbf": agora,
         "exp": agora + validade,
@@ -147,7 +128,6 @@ def obter_usuario_atual(
         termo_pendente=linha["termo_versao"] != VERSAO_TERMO,
     )
 
-    # 120 requisicoes por minuto por usuario (SRS Anexo D.1).
     permitido, espera = limitador.permitir(f"usuario:{usuario.id_usuario}", obter_configuracao().limite_req_minuto)
     if not permitido:
         auditoria.registrar(request, "LIMITE_EXCEDIDO", "NEGADO", usuario=usuario)
@@ -159,11 +139,6 @@ def obter_usuario_atual(
 
 
 def obter_usuario_liberado(usuario: Usuario = Depends(obter_usuario_atual)) -> Usuario:
-    """
-    Primeiro acesso: sem trocar a senha provisoria e sem aceitar o termo, o
-    usuario so alcanca /conta e /auth. A regra fica no servidor; a tela so
-    reflete o que a API exige.
-    """
     if usuario.deve_trocar_senha:
         raise erro_http(403, "Troque a senha provisória antes de continuar.", {"X-Pendencia": "senha"})
     if usuario.termo_pendente:
@@ -173,7 +148,6 @@ def obter_usuario_liberado(usuario: Usuario = Depends(obter_usuario_atual)) -> U
 
 
 def exigir_perfis(*perfis: str):
-    """Dependencia que barra, NO SERVIDOR, qualquer perfil fora da lista."""
 
     def _verificar(request: Request, usuario: Usuario = Depends(obter_usuario_liberado)) -> Usuario:
         if usuario.perfil not in perfis:

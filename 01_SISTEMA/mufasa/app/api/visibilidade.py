@@ -1,25 +1,10 @@
-"""
-O que cada perfil ve de um score ja calculado (SRS Anexo E, RN07, RN17).
-
-O score e gravado inteiro pelo servico de calculo (fatores com valor e
-frase, modificadores, recomendacoes). Aqui ele e recortado por perfil ANTES
-de sair da API: o que o perfil nao pode ver nao chega ao navegador.
-
-- Aluno e nucleo de apoio: tudo.
-- Docente: so fatores academicos; os de contexto viram "fator encaminhado
-  ao nucleo de apoio", sem nome nem numero.
-- Coordenacao: fatores academicos completos; socioeconomicos em faixa
-  qualitativa, sem valor; saude nunca (vira o mesmo rotulo do docente).
-- Financeiro: score, nivel e o fator financeiro; o resto nao.
-"""
-
 import json
 
 from app.api.permissoes import (ALUNO, COORDENACAO, DOCENTE, FATORES_SAUDE, FATORES_SOCIOECONOMICOS,
                                 FINANCEIRO, NUCLEO_APOIO, ROTULO_ENCAMINHADO, faixa_qualitativa)
 
 FATORES_ACADEMICOS = {"notas", "frequencia", "reprovacao", "engajamento_ava"}
-MODIFICADORES_DE_CONTEXTO = {"M1", "M3"}  # citam renda ou deslocamento
+MODIFICADORES_DE_CONTEXTO = {"M1", "M3"}
 
 
 def _lista(valor):
@@ -41,12 +26,10 @@ def recortar_fator(perfil: str, fator: dict) -> dict | None:
                 "peso": fator["peso"], "acionavel": fator["acionavel"],
                 "explicacao": f"Vulnerabilidade em faixa {faixa_qualitativa(fator['pontuacao'])}; o detalhe fica com o "
                               "núcleo de apoio."}
-    # Docente (contexto) e coordenacao (saude): sem nome do fator e sem numero.
     return {"id": None, "fator": "encaminhado", "nome": ROTULO_ENCAMINHADO, "explicacao": ROTULO_ENCAMINHADO}
 
 
 def principais_visiveis(perfil: str, fatores_principais) -> list[str]:
-    """Nomes dos fatores principais que o perfil pode ler (fila de alertas, listas)."""
     principais = []
     for nome in _lista(fatores_principais):
         visivel = recortar_fator(perfil, {"fator": nome, "id": None, "nome": nome, "pontuacao": 0, "peso": 0,
@@ -71,7 +54,6 @@ def recomendacoes_visiveis(perfil: str, recomendacoes) -> list[dict]:
 
 
 def recortar_score(perfil: str, linha) -> dict:
-    """Recebe a linha de vw_score_atual e devolve o que o perfil pode receber."""
     fatores = []
     vistos_encaminhado = False
     for fator in _lista(linha["fatores"]):

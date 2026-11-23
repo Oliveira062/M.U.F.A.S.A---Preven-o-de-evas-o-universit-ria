@@ -1,13 +1,3 @@
-"""
-Endpoints do MUFASA (prefixo /api/v1, SRS Anexo D).
-
-Cada endpoint segue a mesma sequencia:
-1. exigir_perfis(...)          o perfil pode usar o recurso?
-2. verificar_escopo_aluno(...) pode ver ESTE aluno? (registra na auditoria)
-3. consulta parametrizada      so as colunas que o perfil pode receber
-4. resposta                    sem campo que o perfil nao pode ver
-"""
-
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Request
@@ -37,12 +27,7 @@ router = APIRouter(prefix="/api/v1")
 MAIORIDADE = 18
 
 
-# ---------------------------------------------------------------------------
-# Autenticacao
-# ---------------------------------------------------------------------------
-
 class _UsuarioAuditoria:
-    """Identifica na auditoria quem tentou entrar, antes de existir sessao."""
 
     def __init__(self, linha):
         self.id_usuario = linha["id_usuario"] if linha else None
@@ -50,7 +35,6 @@ class _UsuarioAuditoria:
 
 
 def _demonstracao_bloqueada(linha) -> bool:
-    """Contas de demonstracao (senha conhecida) nunca entram em producao."""
     return bool(linha and linha["demonstracao"]) and obter_configuracao().em_producao
 
 
@@ -60,7 +44,6 @@ MSG_LOGIN_FALHOU = ("Login ou senha incorretos. Após 5 tentativas erradas, o ac
 
 @router.post("/auth/token", response_model=RespostaToken, tags=["autenticacao"])
 def entrar(pedido: PedidoLogin, request: Request, conexao: Connection = Depends(obter_conexao)):
-    """Aluno entra com matricula + senha (RN12: matricula sozinha nunca basta)."""
     cfg = obter_configuracao()
 
     for chave in (f"login-ip:{ip_do_cliente(request)}", f"login-conta:{pedido.login.lower()}"):
@@ -75,8 +58,6 @@ def entrar(pedido: PedidoLogin, request: Request, conexao: Connection = Depends(
     bloqueado = linha is not None and (como_datetime(linha["bloqueado_ate"]) or momento) > momento
     senha_ok = conferir_senha(pedido.senha, linha["senha_hash"] if linha else None)
 
-    # Perfil escolhido na tela diferente do da conta conta como falha, com a
-    # mesma mensagem: a resposta nao revela qual perfil a conta tem.
     perfil_ok = linha is not None and linha["perfil"] == pedido.perfil.value
     if (linha is None or bloqueado or not linha["ativo"] or not senha_ok or not perfil_ok
             or _demonstracao_bloqueada(linha)):
@@ -103,22 +84,16 @@ def entrar(pedido: PedidoLogin, request: Request, conexao: Connection = Depends(
 @router.post("/auth/sair", status_code=204, tags=["autenticacao"])
 def sair(request: Request, usuario: Usuario = Depends(obter_usuario_atual),
          carga: dict = Depends(obter_carga_token), conexao: Connection = Depends(obter_conexao)):
-    """Encerra a sessao: o token deixa de valer antes de expirar."""
     expira = datetime.fromtimestamp(carga["exp"], tz=timezone.utc)
     conexao.execute(sql.REVOGAR_TOKEN, {"jti": carga["jti"], "expira_em": expira})
     conexao.commit()
     auditoria.registrar(request, "LOGOUT", "PERMITIDO", usuario=usuario)
 
 
-# ---------------------------------------------------------------------------
-# Alunos
-# ---------------------------------------------------------------------------
-
 @router.get("/alunos", response_model=PaginaAlunos, tags=["alunos"])
 def listar_alunos(request: Request, filtros: FiltrosLista = Depends(filtros_lista),
                   usuario: Usuario = Depends(exigir_perfis(DOCENTE, COORDENACAO, NUCLEO_APOIO)),
                   conexao: Connection = Depends(obter_conexao)):
-    """Lista so os alunos do escopo do perfil: turmas do docente, curso da coordenacao."""
     valores = {
         "semestre": filtros.semestre,
         "nivel": filtros.nivel.value if filtros.nivel else None,
@@ -143,7 +118,6 @@ def listar_alunos(request: Request, filtros: FiltrosLista = Depends(filtros_list
 def perfil_do_aluno(matricula: Matricula, request: Request,
                     usuario: Usuario = Depends(exigir_perfis(ALUNO, DOCENTE, COORDENACAO, NUCLEO_APOIO, FINANCEIRO)),
                     conexao: Connection = Depends(obter_conexao)):
-    """Perfil com campos ocultados conforme o perfil (SRS Anexo E)."""
     verificar_escopo_aluno(request, conexao, usuario, matricula, "LER_PERFIL")
 
     base = conexao.execute(sql.ALUNO_BASICO, {"id_aluno": matricula}).mappings().first()
@@ -165,7 +139,6 @@ def perfil_do_aluno(matricula: Matricula, request: Request,
         p = parametros_vigentes(conexao)
         salario_minimo = p["SALARIO_MINIMO"]
         if usuario.perfil == COORDENACAO:
-            # Coordenacao ve so a faixa qualitativa (RN07).
             faixa = None
             if soc and soc["renda_per_capita"] is not None:
                 risco = risco_por_renda_per_capita(float(soc["renda_per_capita"]) / salario_minimo,
@@ -198,7 +171,6 @@ def perfil_do_aluno(matricula: Matricula, request: Request,
 
 
 def ler_apoio(conexao: Connection, matricula: str) -> dict:
-    """Decifra o bloco de apoio. Sem a chave, so este bloco fica indisponivel."""
     linha = conexao.execute(sql.DADOS_SENSIVEIS_APOIO, {"id_aluno": matricula}).mappings().first()
     if linha is None:
         return {"disponivel": True, "apoio_psicossocial_solicitado": None, "necessidade_acessibilidade": None}
@@ -212,11 +184,6 @@ def ler_apoio(conexao: Connection, matricula: str) -> dict:
 def score_do_aluno(matricula: Matricula, request: Request,
                    usuario: Usuario = Depends(exigir_perfis(ALUNO, DOCENTE, COORDENACAO, NUCLEO_APOIO, FINANCEIRO)),
                    conexao: Connection = Depends(obter_conexao)):
-    """
-    Score gravado pelo servico de calculo, com fatores, modificadores e
-    recomendacoes (RN04, Anexo A B.7), recortado por perfil (Anexo E). Os
-    fatores sao os persistidos junto do score, nunca recalculados na exibicao.
-    """
     verificar_escopo_aluno(request, conexao, usuario, matricula, "LER_SCORE")
     linha = conexao.execute(sql.SCORE_ATUAL, {"id_aluno": matricula}).mappings().first()
     if linha is None:
@@ -235,7 +202,6 @@ def score_do_aluno(matricula: Matricula, request: Request,
 def historico_do_aluno(matricula: Matricula, request: Request,
                        usuario: Usuario = Depends(exigir_perfis(ALUNO, DOCENTE, COORDENACAO, NUCLEO_APOIO)),
                        conexao: Connection = Depends(obter_conexao)):
-    """Serie historica dos scores (RN09): cada recalculo e uma linha nova."""
     verificar_escopo_aluno(request, conexao, usuario, matricula, "LER_HISTORICO")
     linhas = conexao.execute(sql.HISTORICO_SCORE, {"id_aluno": matricula, "limite": 500}).mappings().all()
     return [{"calculado_em": valor_json(l["calculado_em"]), "score": l["score"], "nivel": l["nivel"],
@@ -247,7 +213,6 @@ def historico_do_aluno(matricula: Matricula, request: Request,
 @router.get("/indicadores/agregados", response_model=RespostaAgregados, tags=["indicadores"])
 def indicadores_agregados(request: Request, usuario: Usuario = Depends(exigir_perfis(COORDENACAO, DIRECAO)),
                           conexao: Connection = Depends(obter_conexao)):
-    """Contagem por semestre e nivel, sem nome nem matricula; grupos < 5 suprimidos (CA19)."""
     id_curso = usuario.id_curso if usuario.perfil == COORDENACAO else None
     if usuario.perfil == COORDENACAO and id_curso is None:
         raise erro_http(403, "Seu usuário não está vinculado a um curso.")
@@ -260,14 +225,9 @@ def indicadores_agregados(request: Request, usuario: Usuario = Depends(exigir_pe
         for l in linhas])
 
 
-# ---------------------------------------------------------------------------
-# Privacidade: direitos do titular (LGPD arts. 8, 11, 14, 18, 20)
-# ---------------------------------------------------------------------------
-
 @router.get("/privacidade/meus-dados", tags=["privacidade"])
 def meus_dados(request: Request, usuario: Usuario = Depends(exigir_perfis(ALUNO)),
                conexao: Connection = Depends(obter_conexao)):
-    """Acesso e portabilidade: tudo o que o sistema guarda sobre o proprio aluno (art. 18, II e V)."""
     id_aluno = usuario.id_aluno
     cadastro = conexao.execute(sql.MEUS_DADOS_CADASTRO, {"id_aluno": id_aluno}).mappings().first()
     socio = conexao.execute(sql.MEUS_DADOS_SOCIOECONOMICO, {"id_aluno": id_aluno}).mappings().first()
@@ -302,10 +262,6 @@ def listar_consentimentos(usuario: Usuario = Depends(exigir_perfis(ALUNO)),
 def registrar_consentimento(pedido: PedidoConsentimento, request: Request,
                             usuario: Usuario = Depends(exigir_perfis(ALUNO)),
                             conexao: Connection = Depends(obter_conexao)):
-    """
-    Concede ou revoga o consentimento para dados de saude (art. 11, I).
-    Revogar e sempre possivel e nao traz prejuizo ao aluno (art. 8, par. 5).
-    """
     if pedido.concedido:
         idade = conexao.execute(sql.IDADE_ALUNO, {"id_aluno": usuario.id_aluno}).scalar()
         if idade is None or int(idade) < MAIORIDADE:
@@ -326,7 +282,6 @@ def registrar_consentimento(pedido: PedidoConsentimento, request: Request,
 def solicitar_direito(pedido: PedidoSolicitacao, request: Request,
                       usuario: Usuario = Depends(exigir_perfis(ALUNO)),
                       conexao: Connection = Depends(obter_conexao)):
-    """Correcao, eliminacao, revisao de decisao automatizada e demais direitos do art. 18."""
     conexao.execute(sql.REGISTRAR_SOLICITACAO_TITULAR, {
         "id_aluno": usuario.id_aluno, "tipo": pedido.tipo.value, "descricao": pedido.descricao,
         "registrada_em": agora()})
@@ -349,7 +304,6 @@ def listar_solicitacoes(request: Request, pagina: FiltroPagina = Depends(filtro_
 def ler_auditoria(request: Request, filtro: FiltroAuditoria = Depends(filtro_auditoria),
                   usuario: Usuario = Depends(exigir_perfis(ENCARREGADO_DADOS)),
                   conexao: Connection = Depends(obter_conexao)):
-    """Trilha de acessos para o encarregado de dados. Ler a trilha tambem fica registrado."""
     linhas = conexao.execute(sql.LISTAR_AUDITORIA, {
         "id_aluno": filtro.matricula, "perfil": filtro.perfil.value if filtro.perfil else None,
         "resultado": filtro.resultado.value if filtro.resultado else None, "operacao": filtro.operacao, "de": filtro.de, "ate": filtro.ate,

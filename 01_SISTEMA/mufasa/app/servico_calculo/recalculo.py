@@ -1,13 +1,3 @@
-"""
-Recalculo do score e atualizacao dos alertas (RN01, RN03, RN09).
-
-Cada lote roda numa transacao: le alunos da fila (FOR UPDATE SKIP LOCKED,
-para dois servicos de calculo nunca pegarem o mesmo aluno), calcula, grava
-uma linha NOVA em scores_risco quando algo mudou (a tabela e so de
-insercao) e cria ou atualiza o alerta. Se um aluno der erro, o lote todo
-volta e o erro vai para os registros tecnicos, sem dado pessoal.
-"""
-
 import json
 import logging
 from collections import defaultdict
@@ -27,7 +17,6 @@ NIVEIS_DE_ALERTA = ("ALTO", "CRITICO")
 
 
 def somar_dias_uteis(inicio: datetime, dias: int) -> datetime:
-    """Soma dias uteis (segunda a sexta). Feriados nao estao cadastrados no sistema."""
     atual = inicio
     restantes = int(dias)
     while restantes > 0:
@@ -38,7 +27,6 @@ def somar_dias_uteis(inicio: datetime, dias: int) -> datetime:
 
 
 def prazo_do_nivel(nivel: str, agora: datetime, p: Parametros) -> datetime:
-    """RN02: Critico 48 h; Alto 5 dias uteis; Indeterminado (tarefa de dados) 10 dias uteis."""
     if nivel == "CRITICO":
         return agora + timedelta(hours=p["SLA_CRITICO_HORAS"])
     if nivel == "ALTO":
@@ -67,11 +55,10 @@ def _mudou(resultado: dict, ultimo, versao: int) -> bool:
 
 
 class Avisos:
-    """Junta as notificacoes do lote: uma por pessoa, nao uma por aluno."""
 
     def __init__(self):
-        self.novos = defaultdict(lambda: defaultdict(int))   # id_curso -> nivel -> quantidade
-        self.pessoais = []                                    # (id_usuario, tipo, titulo, texto, id_alerta)
+        self.novos = defaultdict(lambda: defaultdict(int))
+        self.pessoais = []
         self.tarefas_dados = 0
 
     def enviar(self, conexao: Connection, agora: datetime) -> None:
@@ -98,7 +85,6 @@ class Avisos:
 def _atualizar_alertas(conexao, id_aluno, id_score, resultado, anterior_nivel, contexto, p, agora, avisos):
     nivel = resultado["nivel"]
 
-    # Tarefa de dados (RN01, CA12): nunca vira alerta pedagogico.
     tarefa = conexao.execute(sql.ALERTA_ABERTO, {"id_aluno": id_aluno, "tipo": "DADOS"}).mappings().first()
     if nivel == "INDETERMINADO" and tarefa is None:
         id_tarefa = conexao.execute(sql.CRIAR_ALERTA, {
@@ -139,7 +125,6 @@ def _atualizar_alertas(conexao, id_aluno, id_score, resultado, anterior_nivel, c
 
     if alerta["nivel"] == nivel:
         return
-    # RN03: mudou o nivel -> o alerta e atualizado, nunca apagado.
     prazo = alerta["prazo_em"]
     if nivel == "CRITICO" and alerta["situacao"] == "ABERTO":
         prazo = min(prazo, prazo_do_nivel("CRITICO", agora, p))
@@ -156,7 +141,6 @@ def _atualizar_alertas(conexao, id_aluno, id_score, resultado, anterior_nivel, c
 
 
 def processar_lote(conexao: Connection, p: Parametros, lote: int = 200) -> int:
-    """Processa ate `lote` alunos da fila. Devolve quantos foram processados."""
     agora = datetime.now(timezone.utc)
     hoje = agora.date()
     pendentes = conexao.execute(sql.LER_FILA, {"lote": lote}).mappings().all()
@@ -197,7 +181,6 @@ def processar_lote(conexao: Connection, p: Parametros, lote: int = 200) -> int:
 
 
 def avisar_prazos_vencidos(conexao: Connection) -> int:
-    """Registra PRAZO_VENCIDO uma vez por alerta e avisa responsavel e coordenacao."""
     agora = datetime.now(timezone.utc)
     vencidos = conexao.execute(sql.ALERTAS_VENCIDOS_SEM_AVISO, {"agora": agora}).mappings().all()
     for a in vencidos:

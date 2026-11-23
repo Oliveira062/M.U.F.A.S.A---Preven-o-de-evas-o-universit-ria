@@ -1,14 +1,5 @@
-"""
-SQL do servico de calculo. Mesma regra do resto do projeto: constantes com
-parametros nomeados, nada montado com dado de fora. O servico conecta como
-mufasa_calculo, que so enxerga as colunas usadas aqui (sql/painel.sql).
-"""
-
 from sqlalchemy import text
 
-# ---------------------------------------------------------------------------
-# Fila
-# ---------------------------------------------------------------------------
 
 ENFILEIRAR_SEM_SCORE = text("""
     INSERT INTO fila_recalculo (id_aluno, motivo)
@@ -17,7 +8,6 @@ ENFILEIRAR_SEM_SCORE = text("""
     ON CONFLICT (id_aluno) DO NOTHING
 """)
 
-# Versao de parametros diferente da do ultimo score: recalcula.
 ENFILEIRAR_VERSAO_ANTIGA = text("""
     INSERT INTO fila_recalculo (id_aluno, motivo)
     SELECT s.id_aluno, 'parametro' FROM vw_score_atual s WHERE s.versao_parametros <> :versao
@@ -32,22 +22,14 @@ LER_FILA = text("""
        FOR UPDATE SKIP LOCKED
 """)
 
-# So remove se o aluno nao voltou para a fila durante o calculo.
 TIRAR_DA_FILA = text("""
     DELETE FROM fila_recalculo WHERE id_aluno = :id_aluno AND enfileirado_em <= :lido_em
 """)
 
-# ---------------------------------------------------------------------------
-# Parametros vigentes (RN22)
-# ---------------------------------------------------------------------------
 
 PARAMETROS_VIGENTES = text("SELECT chave, valor FROM parametros")
 VERSAO_VIGENTE = text("SELECT max(versao) FROM parametros_versoes")
 
-# ---------------------------------------------------------------------------
-# Dados do aluno para o score (Anexo A). Nenhuma coluna de nome, bairro,
-# saude, raca ou forma de ingresso (RN21).
-# ---------------------------------------------------------------------------
 
 ALUNO = text("""
     SELECT id_aluno, id_curso, semestre_atual, idade FROM alunos WHERE id_aluno = :id_aluno
@@ -78,9 +60,6 @@ SOCIOECONOMICO = text("""
      WHERE id_aluno = :id_aluno
 """)
 
-# ---------------------------------------------------------------------------
-# Score
-# ---------------------------------------------------------------------------
 
 SCORES_RECENTES = text("""
     SELECT id_score, score, nivel, nivel_origem, versao_parametros, fatores, modificadores, motivo_sobreposicao
@@ -104,9 +83,6 @@ GRAVAR_SCORE = text("""
     RETURNING id_score
 """)
 
-# ---------------------------------------------------------------------------
-# Alertas (RN03) e tarefas de dados (RN01)
-# ---------------------------------------------------------------------------
 
 ALERTA_ABERTO = text("""
     SELECT id_alerta, nivel, prazo_em, situacao, id_responsavel
@@ -138,8 +114,6 @@ REGISTRAR_EVENTO = text("""
     VALUES (:id_alerta, :agora, NULL, :tipo, :descricao)
 """)
 
-# Nucleo de apoio do curso com menos alertas abertos, abaixo do teto (RN02:
-# alerta Critico aciona o nucleo de apoio; teto da tabela C.2).
 NAE_DISPONIVEL = text("""
     SELECT u.id_usuario
       FROM usuarios u
@@ -172,9 +146,6 @@ ALERTAS_VENCIDOS_SEM_AVISO = text("""
      LIMIT 500
 """)
 
-# ---------------------------------------------------------------------------
-# Cargas confirmadas (RN08: tudo ou nada)
-# ---------------------------------------------------------------------------
 
 CARGA_CONFIRMADA = text("""
     SELECT id_carga, tipo, enviado_por FROM cargas WHERE situacao = 'CONFIRMADA'
@@ -207,9 +178,6 @@ FINALIZAR_CARGA = text("""
     UPDATE cargas SET situacao = :situacao, aplicada_em = :agora, resultado = :resultado WHERE id_carga = :id_carga
 """)
 
-# ---------------------------------------------------------------------------
-# Operacao
-# ---------------------------------------------------------------------------
 
 SINAL_DE_VIDA = text("""
     INSERT INTO servicos_status (servico, ultimo_sinal, detalhe) VALUES ('calculo', :agora, :detalhe)

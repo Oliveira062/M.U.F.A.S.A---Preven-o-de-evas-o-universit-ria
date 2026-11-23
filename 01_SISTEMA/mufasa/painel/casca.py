@@ -1,15 +1,3 @@
-"""
-Casca (shell) do painel no padrao do Figma (Parte 1 · Shell de cada perfil).
-
-Menu lateral: logo e marca, cartao "Perfil ativo", itens de navegacao com os
-icones do Figma e contador, "Decisao humana" e "Acesso restrito · LGPD" no
-rodape. Barra superior: caminho da pagina, sino com notificacoes, iniciais e
-nome do usuario e botao de sair.
-
-Os itens sao st.page_link (navegacao sem recarregar, a sessao continua); o
-icone e o contador entram por CSS em cada item, pela chave do container.
-"""
-
 import html
 
 import streamlit as st
@@ -20,11 +8,9 @@ import ui
 NOME_PERFIL = {"ALUNO": "Aluno", "DOCENTE": "Docente", "COORDENACAO": "Coordenação", "NUCLEO_APOIO": "NAE",
                "FINANCEIRO": "Setor financeiro", "DIRECAO": "Gestão", "ADMIN": "Administração técnica",
                "ENCARREGADO_DADOS": "Encarregado de dados"}
-# Area do caminho (breadcrumb) de cada perfil
 AREA = {"COORDENACAO": "Coordenação", "NUCLEO_APOIO": "NAE", "DOCENTE": "Docente", "FINANCEIRO": "Setor financeiro",
         "DIRECAO": "Gestão", "ADMIN": "Administração técnica", "ENCARREGADO_DADOS": "Encarregado de dados",
         "ALUNO": "Portal do aluno"}
-# Perfis com fila de alertas: contador no item de alertas
 CONTA_ALERTAS = {"COORDENACAO": "alertas", "NUCLEO_APOIO": "inicio"}
 SEM_DECISAO = ("ALUNO", "DIRECAO", "ADMIN", "ENCARREGADO_DADOS")
 
@@ -119,7 +105,6 @@ def _contador_alertas(perfil: str):
 
 
 def menu_lateral(conta: dict, menu: list, atual):
-    """menu: lista de (pagina, icone do Figma). atual: pagina em exibicao."""
     perfil = conta["perfil"]
     _css_casca()
     contador = _contador_alertas(perfil)
@@ -159,7 +144,6 @@ def barra_superior(conta: dict, titulo: str, pagina_notificacoes, pagina_conta):
         with sino:
             with st.container(key="sino"):
                 st.page_link(pagina_notificacoes, label=f"Notificações ({nao_lidas} novas)")
-        # Iniciais e perfil entram por CSS; o nome leva a "Minha conta"
         ui.css(f".st-key-usuario [data-testid='stPageLink'] a::before {{ content:'{ui.iniciais(nome)}'; }}"
                f".st-key-usuario [data-testid='stPageLink'] a::after {{ content:'{NOME_PERFIL.get(perfil, perfil)}'; }}")
         with usuario:

@@ -1,16 +1,3 @@
-"""
-Administracao tecnica, parametros versionados e pedidos ao encarregado.
-
-Administracao (Anexo E): configura, carrega dados, gerencia contas e le os
-registros tecnicos. Nao le o conteudo dos dados pela interface: nenhuma
-rota daqui devolve nota, renda ou score de aluno.
-
-Parametros (Anexo B, tabela C.2; RN22): a administracao edita; nota e
-cortes de risco so mudam com aprovacao da coordenacao; intervalo entre
-atendimentos e teto de alertas sao da coordenacao. Toda mudanca gera uma
-versao nova com autor, aprovador, justificativa e a fotografia dos valores.
-"""
-
 import hashlib
 import json
 from collections import defaultdict
@@ -38,7 +25,6 @@ router_admin = APIRouter(prefix="/api/v1", tags=["administracao"])
 
 SINAL_MAXIMO_S = 60
 
-# Anexo B, coluna "Quem altera".
 PRECISA_APROVACAO_COORDENACAO = {"NOTA_MINIMA", "NOTA_CONFORTAVEL", "NOTA_CRITICA",
                                  "CORTE_BAIXO", "CORTE_MODERADO", "CORTE_ALTO"}
 ALTERADOS_PELA_COORDENACAO = {"INTERVALO_ATENDIMENTOS", "TETO_ALERTAS_RESPONSAVEL"}
@@ -53,10 +39,6 @@ def quem_altera(chave: str, editavel: bool) -> str:
         return "Administração, com aprovação da coordenação"
     return "Administração"
 
-
-# ---------------------------------------------------------------------------
-# Usuarios
-# ---------------------------------------------------------------------------
 
 class PedidoUsuario(Fechado):
     login: str = Field(min_length=3, max_length=64, pattern=r"^[A-Za-z0-9._@-]+$")
@@ -92,7 +74,6 @@ def listar_usuarios(request: Request, perfil: Perfil | None = None,
 @router_admin.post("/admin/usuarios", status_code=201)
 def criar_usuario(pedido: PedidoUsuario, request: Request, usuario: Usuario = Depends(exigir_perfis(ADMIN)),
                   conexao: Connection = Depends(obter_conexao)):
-    """Cria a conta com senha provisoria, mostrada uma unica vez; troca obrigatoria no primeiro acesso."""
     perfil = pedido.perfil.value
     if conexao.execute(sqlp.LOGIN_EXISTE, {"login": pedido.login}).first():
         raise erro_http(409, "Já existe uma conta com este login.")
@@ -143,10 +124,6 @@ def mudar_usuario(id_usuario: Annotated[int, Path(ge=1)], pedido: PedidoMudancaU
     return resposta
 
 
-# ---------------------------------------------------------------------------
-# Cargas de CSV (RN08, RF06; endpoint /importacoes do Anexo D.1)
-# ---------------------------------------------------------------------------
-
 class TipoCarga(str, Enum):
     NOTAS = "NOTAS"
     INDICADORES = "INDICADORES"
@@ -162,11 +139,6 @@ async def _ler_ate_o_limite(arquivo: UploadFile) -> bytes:
 @router_admin.post("/importacoes", status_code=201)
 async def enviar_carga(request: Request, tipo: Annotated[TipoCarga, Form()], arquivo: UploadFile = File(...),
                        usuario: Usuario = Depends(exigir_perfis(ADMIN)), conexao: Connection = Depends(obter_conexao)):
-    """
-    Recebe e valida. Nada vai para as tabelas de dados aqui: carga valida fica
-    VALIDADA e espera confirmacao; com qualquer erro, fica COM_ERROS e nenhuma
-    linha e aplicada (sem carga parcial).
-    """
     conteudo = await _ler_ate_o_limite(arquivo)
     resumo = hashlib.sha256(conteudo).hexdigest()
     nome = (arquivo.filename or "arquivo.csv").replace("\\", "/").split("/")[-1][:120]
@@ -228,7 +200,7 @@ def situacao_da_carga(id_carga: Annotated[int, Path(ge=1)], usuario: Usuario = D
     for l in conexao.execute(sqlp.REJEICOES_DA_CARGA, {"id_carga": id_carga}).mappings():
         try:
             rejeicoes.extend({"linha": l["numero"], **e} for e in json.loads(l["erro"]))
-        except ValueError:  # relatorio cortado em 300 caracteres
+        except ValueError:
             rejeicoes.append({"linha": l["numero"], "campo": "-", "valor": "", "motivo": "vários erros nesta linha"})
     return {**{k: valor_json(v) for k, v in carga.items() if k != "enviado_por"}, "rejeicoes": rejeicoes}
 
@@ -254,10 +226,6 @@ def decidir_carga(id_carga: Annotated[int, Path(ge=1)], acao: AcaoCarga, request
     return {"situacao": nova, "observacao": "O serviço de cálculo aplica a carga e recalcula os alunos afetados."
             if nova == "CONFIRMADA" else None}
 
-
-# ---------------------------------------------------------------------------
-# Operacao: servicos, registros tecnicos e recalculo
-# ---------------------------------------------------------------------------
 
 class Servico(str, Enum):
     api = "api"
@@ -302,17 +270,12 @@ class PedidoCalculo(Fechado):
 @router_admin.post("/calculos", status_code=202)
 def disparar_recalculo(pedido: PedidoCalculo, request: Request, usuario: Usuario = Depends(exigir_perfis(ADMIN)),
                        conexao: Connection = Depends(obter_conexao)):
-    """Recalculo total ou filtrado (Anexo D.1). A API so enfileira; o servico de calculo processa."""
     total = conexao.execute(sqlp.ENFILEIRAR_TODOS, {"id_curso": pedido.curso, "semestre": pedido.semestre}).rowcount
     conexao.execute(sqlp.ACORDAR_CALCULO)
     conexao.commit()
     auditoria.registrar(request, "DISPARAR_RECALCULO", "PERMITIDO", usuario=usuario)
     return {"alunos_enfileirados": total}
 
-
-# ---------------------------------------------------------------------------
-# Parametros (RN22, RF23)
-# ---------------------------------------------------------------------------
 
 class PedidoParametro(Fechado):
     valor: float
@@ -329,7 +292,6 @@ def _valores_vigentes(conexao: Connection) -> dict:
 
 def _aplicar(conexao: Connection, chave: str, valor: float, autor: int, aprovador: int | None,
              justificativa: str) -> int:
-    """Grava o valor e a versao nova (fotografia completa) na mesma transacao."""
     conexao.execute(sqlp.TRAVAR_VERSOES)
     problemas = problemas_de_coerencia({**_valores_vigentes(conexao), chave: valor})
     if problemas:
@@ -419,10 +381,6 @@ def decidir_proposta(id_proposta: Annotated[int, Path(ge=1)], pedido: PedidoDeci
     auditoria.registrar(request, "DECIDIR_PARAMETRO", "PERMITIDO", usuario=usuario)
     return {"situacao": "APROVADA" if pedido.aprovar else "REJEITADA", "versao": versao}
 
-
-# ---------------------------------------------------------------------------
-# Encarregado de dados: resposta aos pedidos do titular (LGPD art. 18)
-# ---------------------------------------------------------------------------
 
 class SituacaoSolicitacao(str, Enum):
     EM_ANALISE = "EM_ANALISE"

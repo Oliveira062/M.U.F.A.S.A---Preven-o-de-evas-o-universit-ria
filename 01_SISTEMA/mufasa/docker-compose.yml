@@ -1,12 +1,3 @@
-# MUFASA completo em containers: banco, API, chat, calculo e painel.
-#
-#   python -m scripts.configurar --docker   # uma vez: cria o .env com senhas novas
-#   docker compose up -d --build            # sobe tudo (na 1a vez monta o banco)
-#   abra http://127.0.0.1:8501
-#
-# Cada servico e um container separado com reinicio automatico: se um cair,
-# o Docker sobe de novo e os outros continuam. Ver docs/04_USO_LOCAL_E_TESTES.md.
-
 x-app: &app
   build: .
   image: mufasa:1.1.0
@@ -31,14 +22,11 @@ services:
       retries: 20
     restart: unless-stopped
 
-  # Roda uma vez: monta o banco se ainda nao existir (dump do B1 + sql/ + contas).
   montar:
     build: .
     image: mufasa:1.1.0
     env_file: .env
     command: ["python", "-m", "scripts.montar_banco", "--sim", "--se-nao-existir"]
-    # Tarefa de uma vez so; roda como root para poder gravar credenciais/ na
-    # pasta do projeto quando as contas forem geradas (--contas-novas).
     user: root
     environment:
       MUFASA_CREDENCIAIS: /app/credenciais/credenciais.csv

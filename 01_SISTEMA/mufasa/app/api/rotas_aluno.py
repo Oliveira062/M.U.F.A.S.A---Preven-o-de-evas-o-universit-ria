@@ -1,8 +1,3 @@
-"""
-Area do aluno (RN17), disciplinas e acompanhamento na ficha, turmas do
-docente, lista do setor financeiro e calendario de retorno (RN14).
-"""
-
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Annotated
@@ -26,7 +21,6 @@ from app.calculo.score import AVISO_PESOS, FATORES, ROTULOS
 
 router_aluno = APIRouter(prefix="/api/v1", tags=["aluno"])
 
-# RN17: para o aluno, situacao de acompanhamento; nunca "risco de evasao" nem numero isolado.
 SITUACAO_PARA_ALUNO = {
     "BAIXO": ("Sem pendências de acompanhamento", "Seus indicadores estão dentro do esperado."),
     "MODERADO": ("Acompanhamento preventivo",
@@ -48,14 +42,9 @@ def _matricula_do_aluno(usuario: Usuario) -> str:
     return usuario.id_aluno
 
 
-# ---------------------------------------------------------------------------
-# Area do aluno
-# ---------------------------------------------------------------------------
-
 @router_aluno.get("/aluno/situacao")
 def minha_situacao(request: Request, usuario: Usuario = Depends(exigir_perfis(ALUNO)),
                    conexao: Connection = Depends(obter_conexao)):
-    """Situacao de acompanhamento, fatores com o numero concreto e apoios (RN17 a, b, c)."""
     matricula = _matricula_do_aluno(usuario)
     linha = conexao.execute(sql.SCORE_ATUAL, {"id_aluno": matricula}).mappings().first()
     auditoria.registrar(request, "LER_PROPRIA_SITUACAO", "PERMITIDO", usuario=usuario, id_aluno_alvo=matricula)
@@ -93,7 +82,6 @@ def _disciplinas(conexao: Connection, matricula: str) -> list[dict]:
             "nota_final": nota, "frequencia_pct": freq, "situacao": d["situacao"],
             "nota_abaixo_do_minimo": None if nota is None else nota < p["NOTA_MINIMA"],
             "frequencia_abaixo_do_minimo": None if freq is None else freq < p["FREQUENCIA_MINIMA"],
-            # RF17 precisa de aulas previstas e faltas por disciplina, que o B1 nao registra.
             "faltas_restantes": None,
             "observacao_faltas": "Sem dado: o banco não registra aulas previstas nem faltas por disciplina.",
         })
@@ -113,7 +101,6 @@ def minhas_disciplinas(request: Request, usuario: Usuario = Depends(exigir_perfi
 @router_aluno.get("/aluno/acompanhamento")
 def meu_acompanhamento(request: Request, usuario: Usuario = Depends(exigir_perfis(ALUNO)),
                        conexao: Connection = Depends(obter_conexao)):
-    """Registros que a equipe marcou como visiveis, agendamentos e pedidos do aluno."""
     matricula = _matricula_do_aluno(usuario)
     eventos = conexao.execute(sqlp.EVENTOS_VISIVEIS_AO_ALUNO, {"id_aluno": matricula}).mappings().all()
     agendamentos = conexao.execute(sqlp.AGENDAMENTOS_DO_ALUNO, {"id_aluno": matricula}).mappings().all()
@@ -139,7 +126,6 @@ class PedidoContestacao(Fechado):
 @router_aluno.post("/aluno/contestacoes", status_code=201)
 def contestar_fator(pedido: PedidoContestacao, request: Request, usuario: Usuario = Depends(exigir_perfis(ALUNO)),
                     conexao: Connection = Depends(obter_conexao)):
-    """RN17 (d): o aluno contesta um fator; abre tarefa de verificacao de dados."""
     matricula = _matricula_do_aluno(usuario)
     conexao.execute(sql.REGISTRAR_SOLICITACAO_TITULAR, {
         "id_aluno": matricula, "tipo": "CORRECAO", "registrada_em": agora(),
@@ -151,10 +137,6 @@ def contestar_fator(pedido: PedidoContestacao, request: Request, usuario: Usuari
     auditoria.registrar(request, "CONTESTAR_FATOR", "PERMITIDO", usuario=usuario, id_aluno_alvo=matricula)
     return {"registrado": True, "prazo": "A equipe verifica o dado e responde em até 15 dias."}
 
-
-# ---------------------------------------------------------------------------
-# Ficha do aluno para a equipe
-# ---------------------------------------------------------------------------
 
 @router_aluno.get("/alunos/{matricula}/disciplinas")
 def disciplinas_do_aluno(matricula: Matricula, request: Request,
@@ -170,7 +152,6 @@ def disciplinas_do_aluno(matricula: Matricula, request: Request,
 def recomendacoes_do_aluno(matricula: Matricula, request: Request,
                            usuario: Usuario = Depends(exigir_perfis(COORDENACAO, NUCLEO_APOIO)),
                            conexao: Connection = Depends(obter_conexao)):
-    """No maximo 4, por severidade, cada uma com o fator que a originou (Anexo F, RF12)."""
     verificar_escopo_aluno(request, conexao, usuario, matricula, "LER_RECOMENDACOES")
     linha = conexao.execute(sql.SCORE_ATUAL, {"id_aluno": matricula}).mappings().first()
     if linha is None:
@@ -184,7 +165,6 @@ def recomendacoes_do_aluno(matricula: Matricula, request: Request,
 def acompanhamento_do_aluno(matricula: Matricula, request: Request,
                             usuario: Usuario = Depends(exigir_perfis(DOCENTE, COORDENACAO, NUCLEO_APOIO, FINANCEIRO)),
                             conexao: Connection = Depends(obter_conexao)):
-    """Historico de alertas e contatos na ficha (Anexo D.3, Perfil do aluno)."""
     verificar_escopo_aluno(request, conexao, usuario, matricula, "LER_ACOMPANHAMENTO")
     alertas = []
     for a in conexao.execute(sqlp.ALERTAS_DO_ALUNO, {"id_aluno": matricula}).mappings():
@@ -199,10 +179,6 @@ def acompanhamento_do_aluno(matricula: Matricula, request: Request,
                         for g in conexao.execute(sqlp.AGENDAMENTOS_DO_ALUNO, {"id_aluno": matricula}).mappings()]
     return {"alertas": alertas, "agendamentos": agendamentos}
 
-
-# ---------------------------------------------------------------------------
-# Docente: turmas
-# ---------------------------------------------------------------------------
 
 @router_aluno.get("/turmas", tags=["docente"])
 def minhas_turmas(request: Request, usuario: Usuario = Depends(exigir_perfis(DOCENTE)),
@@ -220,7 +196,6 @@ def minhas_turmas(request: Request, usuario: Usuario = Depends(exigir_perfis(DOC
 @router_aluno.get("/turmas/{id_turma}/alunos", tags=["docente"])
 def alunos_da_turma(id_turma: Annotated[str, Path(pattern=r"^[A-Za-z0-9_-]{2,40}$")], request: Request,
                     usuario: Usuario = Depends(exigir_perfis(DOCENTE)), conexao: Connection = Depends(obter_conexao)):
-    """So turma do proprio docente; fatores de contexto aparecem como encaminhados (RN07)."""
     turma = conexao.execute(sqlp.TURMA_DO_DOCENTE, {"id_turma": id_turma,
                                                     "id_professor": usuario.id_professor}).mappings().first()
     if turma is None:
@@ -234,10 +209,6 @@ def alunos_da_turma(id_turma: Annotated[str, Path(pattern=r"^[A-Za-z0-9_-]{2,40}
         "situacao": l["situacao"], "nivel": l["nivel"], "score": l["score"],
         "fatores_principais": principais_visiveis(DOCENTE, l["fatores_principais"])} for l in linhas]}
 
-
-# ---------------------------------------------------------------------------
-# Setor financeiro (Anexo E: pendencias e elegibilidade; sem saude nem desempenho)
-# ---------------------------------------------------------------------------
 
 @router_aluno.get("/financeiro/alunos", tags=["financeiro"])
 def alunos_do_financeiro(request: Request, limite: Annotated[int, Query(ge=1, le=200)] = 50,
@@ -256,10 +227,6 @@ def alunos_do_financeiro(request: Request, limite: Annotated[int, Query(ge=1, le
              "recomendacoes": [r["texto"] for r in lista_json(l["recomendacoes"])
                                if r["perfil_atendimento"] == "Financeiro"]} for l in linhas]
 
-
-# ---------------------------------------------------------------------------
-# Calendario de retorno (RN14, CA03, RF14)
-# ---------------------------------------------------------------------------
 
 class PedidoAgendamento(Fechado):
     matricula: str | None = Field(default=None, pattern=PADRAO_MATRICULA, description="Equipe: aluno do agendamento")
@@ -312,11 +279,6 @@ def listar_agendamentos(request: Request, matricula: Annotated[str | None, Query
 def agendar(pedido: PedidoAgendamento, request: Request,
             usuario: Usuario = Depends(exigir_perfis(ALUNO, COORDENACAO, NUCLEO_APOIO)),
             conexao: Connection = Depends(obter_conexao)):
-    """
-    RN14: intervalo minimo entre atendimentos, validado no servidor. Recusa
-    informa a proxima data possivel. Excecao: aluno Critico ou com alerta
-    aberto de prazo de 48 h, com o motivo registrado.
-    """
     aluno = _aluno_do_pedido(request, conexao, usuario, pedido.matricula, "AGENDAR")
     momento = agora()
     if pedido.inicio <= momento + timedelta(hours=1):

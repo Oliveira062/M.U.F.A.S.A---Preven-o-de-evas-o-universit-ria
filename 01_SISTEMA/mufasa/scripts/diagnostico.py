@@ -1,19 +1,3 @@
-"""
-Diagnostico do MUFASA: confere tudo o que o sistema precisa e diz o que esta errado.
-
-    python -m scripts.diagnostico                      # relatorio completo
-    python -m scripts.diagnostico --requisicao 3f9a1c0b2d4e   # acha um erro pelo codigo da tela
-    python -m scripts.diagnostico --saida relatorio.txt       # salva para enviar a quem vai corrigir
-
-Confere, em ordem: Python e pacotes; variaveis do .env (so se existem, nunca
-o valor); conexao de cada perfil de banco; tabelas, parametros e migracoes;
-servicos no ar (/saude e sinal de vida); fila de calculo; erros recentes nos
-registros tecnicos e nos arquivos de log. Termina com codigo 0 se nada
-falhou, 1 se algo falhou (serve para automacao).
-
-O relatorio nao contem senha, token nem dado de aluno.
-"""
-
 import argparse
 import importlib.metadata as md
 import io
@@ -230,7 +214,7 @@ def buscar_requisicao(codigo: str, engine):
             if codigo in l:
                 achou = True
                 print(f"  {arq.name}:{i + 1}")
-                for extra in linhas[i:i + 25]:  # inclui a pilha do erro, se houver
+                for extra in linhas[i:i + 25]:
                     if extra is not l and re.match(r"^\d{4}-\d{2}-\d{2} ", extra):
                         break
                     print("    " + extra[:300])

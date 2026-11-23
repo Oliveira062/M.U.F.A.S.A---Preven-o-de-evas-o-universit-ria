@@ -1,19 +1,3 @@
-"""
-Executa a intencao classificada e monta o resultado com os dados REAIS.
-
-Fluxo de cada intencao de dados:
-1. Confere se o perfil pode usar a intencao (servidor, nunca o texto).
-2. Escolhe UMA consulta de consultas_chat.py e preenche os parametros com
-   o escopo do usuario logado (o aluno so consulta o proprio id_aluno).
-3. Monta tres coisas:
-   - dados:     a lista estruturada que o painel mostra (valores do banco);
-   - rascunho:  o texto padrao, com marcadores [[...]] no lugar dos valores;
-   - sinais:    informacoes qualitativas, sem numero e sem identificacao,
-                que a IA pode usar para deixar o texto mais acolhedor.
-4. Se a consulta nao devolve nada, a resposta diz que nao ha dado.
-   Nenhum valor e completado, estimado ou inventado (Anexo E.2).
-"""
-
 from dataclasses import dataclass, field
 
 from fastapi import HTTPException, Request
@@ -32,13 +16,8 @@ from datetime import date, timedelta
 
 from app.chatbot.texto import data_br, normalizar, numero_br
 
-# A visao vw_chat_risco_atual entrega o nivel no rotulo do B1 ("Crítico");
-# o JSON do chat devolve o codigo do SRS (CRITICO).
 NIVEL_DO_BANCO = {"Baixo": "BAIXO", "Moderado": "MODERADO", "Alto": "ALTO", "Crítico": "CRITICO"}
 
-# Auditoria 4.5-D: desde sql/b1_correcoes.sql, notas das disciplinas e medias
-# estao na mesma escala, de 0 a 10. O chatbot mostra o valor como esta no
-# banco e diz a escala.
 ESCALA_NOTAS_DISCIPLINA = "0 a 10"
 ESCALA_MEDIA_GERAL = "0 a 10"
 
@@ -77,7 +56,7 @@ _ROMANOS = {"i": "1", "ii": "2", "iii": "3", "iv": "4", "v": "5", "vi": "6"}
 class Resultado:
     intencao: str
     rascunho: str
-    rodape: str = ""  # texto obrigatorio (aviso metodologico, RN05) que a IA nao reescreve
+    rodape: str = ""
     valores: dict[str, str] = field(default_factory=dict)
     detalhes: str = ""
     sinais: dict = field(default_factory=dict)
@@ -91,13 +70,9 @@ class Resultado:
     recusa: bool = False
     tentativa_burla: bool = False
     pode_humanizar: bool = False
-    livre: bool = False  # conversa sem dado (saudacao, ajuda, duvida geral): a IA escreve do zero
+    livre: bool = False
     id_aluno_alvo: str | None = None
 
-
-# ---------------------------------------------------------------------------
-# Textos fixos: recusas e respostas informativas nao passam pela IA.
-# ---------------------------------------------------------------------------
 
 def _janela() -> str:
     return obter_configuracao_chat().chat_janela_atendimento
@@ -160,7 +135,6 @@ def _fixo(intencao: str, usuario: Usuario) -> Resultado | None:
     if intencao not in textos:
         return None
     r = Resultado(intencao=intencao, rascunho=textos[intencao], opcoes=opcoes)
-    # Conversa livre: com a IA ligada, ela responde do proprio jeito; o texto acima e o plano B.
     r.livre = intencao in it.INTENCOES_DE_CONVERSA
     r.recusa = intencao in it.RECUSAS
     r.tentativa_burla = intencao == it.BURLA
@@ -172,10 +146,6 @@ def _fixo(intencao: str, usuario: Usuario) -> Resultado | None:
 def _sem_permissao(intencao: str, mensagem: str) -> Resultado:
     return Resultado(intencao=intencao, rascunho=mensagem, recusa=True)
 
-
-# ---------------------------------------------------------------------------
-# Disciplinas citadas na pergunta
-# ---------------------------------------------------------------------------
 
 def _tokens(nome: str) -> tuple[set[str], str | None]:
     partes = [_ROMANOS.get(p, p) for p in normalizar(nome).split()]
@@ -203,10 +173,6 @@ def disciplinas_citadas(pergunta: str, nomes: list[str]) -> list[str]:
     return melhores
 
 
-# ---------------------------------------------------------------------------
-# Intencoes do aluno
-# ---------------------------------------------------------------------------
-
 def _linhas(conexao: Connection, consulta, params: dict) -> list[dict]:
     return [dict(l) for l in conexao.execute(consulta, params).mappings().all()]
 
@@ -222,7 +188,6 @@ def _primeiro_nome(perfil: dict | None) -> str | None:
 
 
 def _com_nome(r: Resultado, perfil: dict | None, frase_com_nome: str, frase_sem_nome: str) -> str:
-    """O nome entra como marcador: a IA nunca ve o nome, o servidor coloca depois."""
     nome = _primeiro_nome(perfil)
     if nome:
         r.valores["NOME"] = nome
@@ -246,7 +211,6 @@ def _nomes_fatores(fatores) -> list[str]:
 
 
 def _disciplinas_do_aluno(conexao_chat: Connection, id_aluno: str, pergunta: str):
-    """Devolve (linhas filtradas, filtro aplicado, disciplina citada sem matricula)."""
     linhas = _linhas(conexao_chat, sql.DISCIPLINAS_DO_ALUNO, {"id_aluno": id_aluno, "limite": sql.LIMITE_LINHAS})
     minhas = [l["disciplina"] for l in linhas]
     citadas = disciplinas_citadas(pergunta, minhas)
@@ -369,7 +333,7 @@ def _intencao_disciplinas(intencao: str, conexao_chat: Connection, id_aluno: str
         if reprovadas:
             fecho += (f"\n\nEm [[QTD_REPROVADAS]] {_pl(reprovadas, 'disciplina', 'disciplinas')} a situação ficou como reprovação. Se quiser, o "
                       "núcleo de apoio pode te ajudar a montar um plano de estudos.")
-    if filtro:  # "e em Calculo II?": a abertura diz de qual disciplina se trata
+    if filtro:
         r.valores["DISCIPLINAS"] = _lista_pt(filtro)
         abertura = (abertura.replace("Estas são as suas notas", "Estas são as suas notas de [[DISCIPLINAS]]")
                     .replace("Esta é a sua frequência", "Esta é a sua frequência em [[DISCIPLINAS]]")
@@ -408,7 +372,7 @@ def _intencao_indicadores(intencao: str, conexao_chat: Connection, id_aluno: str
         abertura = _com_nome(r, _perfil_aluno(conexao_chat, id_aluno), "[[NOME]], sua", "Sua")
         r.rascunho = (f"{abertura} média atual em {r.referencia} é [[MEDIA_ATUAL]]. No semestre anterior, ela foi "
                       f"[[MEDIA_ANTERIOR]].{fecho}\n\nAs médias vão de {ESCALA_MEDIA_GERAL}.")
-    else:  # PENDENCIAS
+    else:
         r.valores = {"PENDENTES": _valor(ind["atividades_pendentes"])}
         pendentes = ind["atividades_pendentes"]
         r.sinais = {"tem_pendencias": bool(pendentes)}
@@ -567,10 +531,6 @@ def _intencao_meu_risco(conexao_chat: Connection, id_aluno: str) -> Resultado:
     return r
 
 
-# ---------------------------------------------------------------------------
-# Intencoes da equipe
-# ---------------------------------------------------------------------------
-
 def _escopo_equipe(usuario: Usuario) -> tuple[str, dict] | None:
     if usuario.perfil == DOCENTE and usuario.id_professor:
         return "DOCENTE", {"id_professor": usuario.id_professor}
@@ -586,7 +546,7 @@ def _intencao_resumo_risco(conexao_chat: Connection, usuario: Usuario) -> Result
     tipo, params = escopo
     consulta = sql.RESUMO_RISCO_DOCENTE if tipo == "DOCENTE" else sql.RESUMO_RISCO_CURSO
     linhas = _linhas(conexao_chat, consulta, params)
-    if usuario.perfil == NUCLEO_APOIO:  # o nucleo ve so alunos com alerta (Anexo E)
+    if usuario.perfil == NUCLEO_APOIO:
         linhas = [l for l in linhas if l["nivel_risco"] in (NIVEL_CRITICO, NIVEL_ALTO)]
     por_nivel = {l["nivel_risco"]: int(l["total"]) for l in linhas if l["nivel_risco"]}
     r = Resultado(intencao=it.RESUMO_RISCO, rascunho="", registros=sum(por_nivel.values()),
@@ -653,7 +613,6 @@ def _intencao_busca(conexao_chat: Connection, usuario: Usuario, pergunta: str) -
     tipo, params = escopo
     busca = interpretar(pergunta)
     avisos = []
-    # Distancia e dado socioeconomico: so o nucleo de apoio ve o valor (app/api/visibilidade.py).
     if any(f.campo == "distancia" for f in busca.filtros) and usuario.perfil != NUCLEO_APOIO:
         busca.filtros = [f for f in busca.filtros if f.campo != "distancia"]
         avisos.append("A distância de casa é um dado socioeconômico que só o núcleo de apoio consulta, por isso "
@@ -662,7 +621,7 @@ def _intencao_busca(conexao_chat: Connection, usuario: Usuario, pergunta: str) -
         avisos.append("Ignorei o valor de " + _lista_pt(busca.descartados) + " porque ficou fora da escala "
                       "(frequência vai de 0 a 100% e média de 0 a 10).")
     niveis = list(busca.niveis)
-    if usuario.perfil == NUCLEO_APOIO:  # o nucleo ve so alunos com alerta (Anexo E)
+    if usuario.perfil == NUCLEO_APOIO:
         niveis = [n for n in (niveis or [NIVEL_CRITICO, NIVEL_ALTO]) if n in (NIVEL_CRITICO, NIVEL_ALTO)]
         if not niveis:
             niveis = [NIVEL_CRITICO, NIVEL_ALTO]
@@ -694,7 +653,6 @@ def _intencao_busca(conexao_chat: Connection, usuario: Usuario, pergunta: str) -
     conta = conexao_chat.execute(sql.CONTAGEM_BUSCA_ALUNOS, todos).mappings().first()
     total = int(conta["total"]) if conta else 0
     r.registros = total
-    # "morando a mais de 20 km, com frequencia abaixo de 70% e media abaixo de 5"
     moradia = [d for d in descricoes if d.startswith(("morando", "do ", "depois do", "a partir do", "antes do", "até o"))]
     outros = [d for d in descricoes if d not in moradia]
     criterios = ", ".join(moradia + (["com " + _lista_pt(outros)] if outros else []))
@@ -805,10 +763,6 @@ def _intencao_aluno_especifico(request: Request, conexao_api: Connection, conexa
     r.rodape = AVISO_METODOLOGICO
     return r
 
-
-# ---------------------------------------------------------------------------
-# Ponto de entrada
-# ---------------------------------------------------------------------------
 
 def executar(intencao: str, matriculas: list[str], pergunta: str, usuario: Usuario, request: Request,
              conexao_api: Connection, conexao_chat: Connection) -> Resultado:

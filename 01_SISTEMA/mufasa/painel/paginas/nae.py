@@ -1,5 +1,3 @@
-"""Nucleo de apoio (NAE): meus alertas (hub) e alunos atribuidos."""
-
 import streamlit as st
 
 import cliente

@@ -1,5 +1,3 @@
-"""Contratos do chatbot. Mesmo padrao do B3: campos fechados (extra="forbid")."""
-
 from datetime import datetime
 from typing import Annotated, Any
 
@@ -10,8 +8,6 @@ from app.api.esquemas import Fechado
 
 
 class PedidoChat(Fechado):
-    # So o texto. Quem pergunta e o perfil vem do token, nunca do corpo:
-    # um corpo com usuario_id ou perfil e recusado com 422.
     texto: str = Field(min_length=1, max_length=500, description="Pergunta em português")
 
 

@@ -1,37 +1,3 @@
-"""
-Redacao da resposta: texto humanizado SEM enviar dado do aluno a IA.
-
-Como funciona:
-1. servico.py devolve um rascunho com marcadores, por exemplo
-   "Na avaliação de [[DATA]], seu nível de risco ficou [[NIVEL]]."
-   Todo numero que sobrar no rascunho (periodo, escala) vira marcador aqui.
-2. A IA recebe so: a intencao, sinais qualitativos sem identificacao
-   ("tem_reprovacao_registrada": true) e o rascunho com marcadores. Ela
-   reescreve o tom. A pergunta digitada NAO vai: o usuario pode ter escrito
-   nome, telefone ou um problema pessoal nela.
-3. O servidor confere a resposta da IA. E descartada se:
-   - faltar algum marcador do rascunho, ou aparecer um que nao existe;
-   - tiver qualquer algarismo fora dos marcadores (numero inventado);
-   - tiver link, HTML, bloco de codigo ou passar do tamanho maximo.
-4. So depois disso os marcadores viram os valores reais do banco.
-   [[DETALHES]] vira a lista montada pelo servidor, que a IA nunca ve.
-5. O rodape obrigatorio (aviso metodologico) e anexado sem passar pela IA.
-
-Se a IA estiver desligada ou a resposta for descartada, o rascunho e usado
-como esta, que tambem ja e um texto acolhedor.
-
-Conversa mais livre (28/10/2026, pedido do João):
-- A IA tem liberdade de estilo: reorganiza, acolhe, comenta o que a pessoa
-  perguntou e pode dar dicas gerais de estudo. As regras de dado continuam.
-- Para entender o que foi perguntado, ela recebe a pergunta ANONIMIZADA
-  (texto.texto_para_ia: sem numero, nome, CPF, e-mail, telefone, matricula)
-  e as ultimas perguntas da conversa, anonimizadas do mesmo jeito. Pergunta
-  que fala de saude nao vai (texto.menciona_saude). CHAT_IA_CONVERSA=false
-  desliga isso e volta ao modo anterior (so o rascunho).
-- Saudacao, ajuda, agradecimento e duvida geral sem dado viram conversa
-  livre: a IA escreve do zero, sem nenhum marcador e sem numero.
-"""
-
 import json
 import re
 
@@ -111,7 +77,6 @@ def _mascarar_numeros(rascunho: str, valores: dict[str, str]) -> str:
         valores[nome] = m.group(0)
         return f"[[{nome}]]"
 
-    # So fora dos marcadores ja existentes.
     partes = re.split(r"(\[\[[A-Z0-9_]+\]\])", rascunho)
     return "".join(p if MARCADOR.fullmatch(p) else _NUMERO.sub(_trocar, p) for p in partes)
 
@@ -121,10 +86,10 @@ def resposta_da_ia_valida(texto: str, marcadores_esperados: list[str]) -> bool:
         return False
     encontrados = MARCADOR.findall(texto)
     if sorted(encontrados) != sorted(marcadores_esperados):
-        return False  # faltou, sobrou, repetiu ou inventou marcador
+        return False
     sem_marcadores = MARCADOR.sub("", texto)
     if re.search(r"\d", sem_marcadores):
-        return False  # numero que nao veio do banco
+        return False
     if "[[" in sem_marcadores or "]]" in sem_marcadores:
         return False
     return True
@@ -137,8 +102,6 @@ def _preencher(texto: str, resultado: Resultado, valores: dict[str, str]) -> str
             return resultado.detalhes
         return valores.get(nome, "")
 
-    # A lista sempre fica em bloco proprio e os paragrafos com uma linha em branco entre eles,
-    # mesmo que a IA tenha juntado tudo numa linha so.
     texto = re.sub(r"[ \t]*\n?[ \t]*\[\[DETALHES\]\][ \t]*\n?[ \t]*", "\n\n[[DETALHES]]\n\n", texto)
     final = MARCADOR.sub(_valor, texto)
     final = re.sub(r"\n{3,}", "\n\n", final).strip()
@@ -148,7 +111,6 @@ def _preencher(texto: str, resultado: Resultado, valores: dict[str, str]) -> str
 
 
 def _contexto(pergunta: str | None, historico: list[str] | None) -> dict:
-    """Pergunta e historico anonimizados; vazio se a conversa tocar em saude ou se estiver desligado."""
     if not pergunta or not obter_configuracao_chat().chat_ia_conversa:
         return {}
     if menciona_saude(pergunta) or any(menciona_saude(h) for h in historico or []):
@@ -184,7 +146,6 @@ def montar_mensagens_conversa(resultado: Resultado, perfil: str, pergunta: str,
 
 def redigir(resultado: Resultado, perfil: str = "ALUNO", pergunta: str | None = None,
             historico: list[str] | None = None) -> tuple[str, bool]:
-    """Devolve (texto final com dados reais, se a IA redigiu)."""
     valores = dict(resultado.valores)
     rascunho = _mascarar_numeros(resultado.rascunho, valores)
     temperatura = obter_configuracao_chat().groq_temperatura
@@ -208,12 +169,6 @@ def redigir(resultado: Resultado, perfil: str = "ALUNO", pergunta: str | None = 
 
 
 def classificar_com_ia(pergunta: str, perfil: str) -> str:
-    """
-    Usada so quando as regras nao reconhecem a pergunta e CHAT_IA_CLASSIFICAR
-    esta ligado (padrao: desligado). Aqui a pergunta sai do servidor, mas sem
-    CPF, e-mail, telefone, matricula, numero nem palavra com inicial maiuscula
-    (nomes proprios). A IA so escolhe um rotulo da lista; o servidor confere.
-    """
     permitidas = sorted(it.INTENCOES_QUE_A_IA_PODE_SUGERIR - (
         it.INTENCOES_DE_EQUIPE if perfil == "ALUNO" else set()))
     mensagens = [{"role": "system", "content": PROMPT_CLASSIFICACAO.format(lista=", ".join(permitidas))},

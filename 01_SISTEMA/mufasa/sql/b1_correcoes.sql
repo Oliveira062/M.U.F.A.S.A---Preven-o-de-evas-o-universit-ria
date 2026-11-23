@@ -1,40 +1,7 @@
--- MUFASA — correcoes estruturais do banco do B1 (PostgreSQL 16)
---
--- Ordem de aplicacao, conectado como dono do banco:
---     psql -d mufasa -f "Parte Samuel BackEnd B1 - limpo.sql"
---     psql -d mufasa -f sql/b1_correcoes.sql        <- este arquivo
---     psql -d mufasa -f sql/b3_complemento.sql
---     psql -d mufasa -f sql/chatbot.sql
---     psql -d mufasa -f sql/painel.sql
---     python -m scripts.migrar_apoio                 <- cifra os dados de apoio
---
--- O que este arquivo corrige (docs/AUDITORIA_SEGURANCA.md, achados do B1):
---   1. Chaves primarias e estrangeiras: o dump nao tinha nenhuma, entao
---      nada impedia aluno duplicado ou matricula de turma inexistente.
---   2. Datas guardadas como texto viram DATE.
---   3. Notas das disciplinas (0 a 100) passam para a escala 0 a 10, a mesma
---      das medias, de materias.media_aprovacao e do B2. Os valores originais
---      ficam em b1_notas_originais.
---   4. Restricoes de faixa (CHECK) nas colunas numericas.
---   5. Os dados de apoio psicossocial e acessibilidade (dado de saude, LGPD
---      art. 11) saem da tabela alunos e vao para apoio_aluno, cifrados pela
---      aplicacao. A tabela e criada aqui; a copia cifrada e a remocao das
---      colunas antigas sao feitas por scripts/migrar_apoio.py, porque a chave
---      de cifra nunca deve passar pelo banco.
---   6. As tabelas deixam de pertencer ao superusuario postgres.
--- O que NAO faz: nao altera nenhum valor de nota, frequencia, media ou
--- avaliacao alem da mudanca de escala do item 3.
-
 BEGIN;
 
--- As visoes do chatbot dependem dos tipos das colunas; sao recriadas por
--- sql/chatbot.sql logo depois.
 DROP VIEW IF EXISTS vw_chat_disciplinas_aluno, vw_chat_indicadores, vw_chat_risco_atual,
                     vw_chat_vinculo_docente;
-
--- ---------------------------------------------------------------------------
--- 1. Chaves primarias
--- ---------------------------------------------------------------------------
 
 ALTER TABLE universidades          ALTER COLUMN id_universidade SET NOT NULL, ADD PRIMARY KEY (id_universidade);
 ALTER TABLE cursos                 ALTER COLUMN id_curso        SET NOT NULL, ADD PRIMARY KEY (id_curso);
@@ -50,13 +17,8 @@ ALTER TABLE indicadores_academicos ALTER COLUMN id_aluno        SET NOT NULL,
                                    ALTER COLUMN periodo_letivo  SET NOT NULL,
                                    ADD PRIMARY KEY (id_aluno, periodo_letivo);
 
--- Um aluno nao se matricula duas vezes na mesma turma.
 ALTER TABLE matriculas ALTER COLUMN id_aluno SET NOT NULL, ALTER COLUMN id_turma SET NOT NULL,
                        ADD CONSTRAINT uq_matricula_aluno_turma UNIQUE (id_aluno, id_turma);
-
--- ---------------------------------------------------------------------------
--- 2. Chaves estrangeiras
--- ---------------------------------------------------------------------------
 
 ALTER TABLE cursos                 ADD FOREIGN KEY (id_universidade) REFERENCES universidades(id_universidade);
 ALTER TABLE materias               ADD FOREIGN KEY (id_curso)        REFERENCES cursos(id_curso);
@@ -69,16 +31,8 @@ ALTER TABLE matriculas             ADD FOREIGN KEY (id_aluno)        REFERENCES 
                                    ADD FOREIGN KEY (id_turma)        REFERENCES turmas(id_turma);
 ALTER TABLE avaliacoes_risco       ADD FOREIGN KEY (id_aluno)        REFERENCES alunos(id_aluno);
 
--- ---------------------------------------------------------------------------
--- 3. Datas como DATE (o dump grava '2026-08-17' em VARCHAR)
--- ---------------------------------------------------------------------------
-
 ALTER TABLE avaliacoes_risco ALTER COLUMN data_avaliacao TYPE DATE USING data_avaliacao::date;
 ALTER TABLE professores      ALTER COLUMN data_admissao  TYPE DATE USING data_admissao::date;
-
--- ---------------------------------------------------------------------------
--- 4. Notas das disciplinas: de 0-100 para 0-10
--- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS b1_notas_originais (
     id_matricula VARCHAR(255) PRIMARY KEY REFERENCES matriculas(id_matricula),
@@ -92,16 +46,10 @@ INSERT INTO b1_notas_originais (id_matricula, va1, va2, va3, nota_final)
 SELECT id_matricula, va1, va2, va3, nota_final FROM matriculas
 ON CONFLICT (id_matricula) DO NOTHING;
 
--- Converte so se ainda estiver na escala antiga: rodar o arquivo duas vezes
--- nao divide por 10 de novo.
 UPDATE matriculas
    SET va1 = round(va1 / 10, 2), va2 = round(va2 / 10, 2), va3 = round(va3 / 10, 2),
        nota_final = round(nota_final / 10, 2)
  WHERE EXISTS (SELECT 1 FROM matriculas WHERE GREATEST(va1, va2, va3, nota_final) > 10);
-
--- ---------------------------------------------------------------------------
--- 5. Faixas validas
--- ---------------------------------------------------------------------------
 
 ALTER TABLE matriculas
     ADD CONSTRAINT ck_matriculas_notas CHECK (
@@ -134,21 +82,13 @@ ALTER TABLE alunos
 ALTER TABLE avaliacoes_risco
     ADD CONSTRAINT ck_avaliacoes_pct CHECK (risco_evasao_pct IS NULL OR risco_evasao_pct BETWEEN 0 AND 100);
 
--- ---------------------------------------------------------------------------
--- 6. Dados de apoio: tabela separada, cifrada pela aplicacao (Fernet)
--- ---------------------------------------------------------------------------
-
 CREATE TABLE IF NOT EXISTS apoio_aluno (
     id_aluno       VARCHAR(255) PRIMARY KEY REFERENCES alunos(id_aluno),
-    dados_cifrados TEXT        NOT NULL CHECK (dados_cifrados LIKE 'gAAAAA%'),  -- token Fernet
+    dados_cifrados TEXT        NOT NULL CHECK (dados_cifrados LIKE 'gAAAAA%'),
     atualizado_em  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 COMMENT ON TABLE apoio_aluno IS
     'Apoio psicossocial e acessibilidade (LGPD art. 11). Cifrado com APOIO_CHAVE, que fica fora do banco.';
-
--- ---------------------------------------------------------------------------
--- 7. Dono das tabelas: um perfil sem login, nao o superusuario
--- ---------------------------------------------------------------------------
 
 DO $$
 BEGIN
@@ -156,8 +96,7 @@ BEGIN
         CREATE ROLE mufasa_dono NOLOGIN;
     END IF;
 END $$;
--- O dono confere as chaves estrangeiras e executa os gatilhos SECURITY DEFINER:
--- precisa enxergar o esquema mesmo depois do REVOKE de b3_complemento.sql.
+
 GRANT USAGE, CREATE ON SCHEMA public TO mufasa_dono;
 
 DO $$

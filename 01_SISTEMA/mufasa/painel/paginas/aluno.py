@@ -1,5 +1,3 @@
-"""Portal do aluno (Figma Parte 5): situacao de acompanhamento, sem numero de score (RN17)."""
-
 import html
 import json
 from datetime import datetime, time, timedelta
@@ -21,7 +19,6 @@ TIPOS_PEDIDO = {"Confirmar que tratam meus dados e ver quais": "CONFIRMACAO_ACES
 
 
 def _ponderada(disciplinas: list[dict], campo: str):
-    """Media ponderada pela carga horaria, a mesma regra do calculo (indicadores.calcular_media_ponderada)."""
     pares = [(d[campo], d["carga_horaria_h"] or 0) for d in disciplinas if d[campo] is not None]
     peso = sum(p for _, p in pares)
     return None if not pares or peso == 0 else sum(v * p for v, p in pares) / peso

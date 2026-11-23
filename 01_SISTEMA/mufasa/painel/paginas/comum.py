@@ -1,5 +1,3 @@
-"""Telas usadas por varios perfis: ficha do aluno, notificacoes, conta e assistente."""
-
 import html
 
 import pandas as pd
@@ -13,10 +11,6 @@ import ui
 ROTULO_TENDENCIA = {"MELHORA": "↘ melhora", "ESTAVEL": "→ estável", "PIORA": "↗ piora",
                     "PIORA_SUSTENTADA": "⇈ piora sustentada", None: "sem histórico suficiente"}
 
-
-# ---------------------------------------------------------------------------
-# Ficha do aluno (Figma Parte 4), recortada pelo perfil no servidor
-# ---------------------------------------------------------------------------
 
 def _escolher_matricula() -> str | None:
     atual = st.session_state.get("ficha_matricula") or st.query_params.get("m")
@@ -67,7 +61,6 @@ CORTES = (25, 50, 75)
 
 
 def escala_score(score):
-    """Barra 0-100 com as quatro faixas do SRS (RN02) e o marcador do score (Figma: Score de risco)."""
     limites = (0,) + CORTES + (100,)
     faixas = "".join(f'<div style="flex:{limites[i + 1] - limites[i]};background:{ui.SELO[n][0]}"></div>'
                      for i, n in enumerate(("BAIXO", "MODERADO", "ALTO", "CRITICO")))
@@ -159,7 +152,6 @@ def ficha():
         return
 
     lateral = perfil != "FINANCEIRO"
-    # a coluna lateral fica com a altura do proprio conteudo (nao estica ate o fim da coluna principal)
     ui.css("[data-testid='stLayoutWrapper']:has(> .st-key-pn_s_historico_de_classificacoes),"
            " .st-key-pn_s_historico_de_classificacoes { height:auto !important; }")
     if lateral:
@@ -275,10 +267,6 @@ def ficha():
         ui.restrito("Você vê indicadores acadêmicos. Renda, trabalho, saúde e moradia ficam com o NAE.")
 
 
-# ---------------------------------------------------------------------------
-# Notificacoes e conta
-# ---------------------------------------------------------------------------
-
 def notificacoes():
     ui.cabecalho("Notificações", "Avisos de alertas, prazos e parâmetros · atualiza a cada 20 s")
 
@@ -345,10 +333,6 @@ def minha_conta():
                     except cliente.ErroAPI as e:
                         st.error(e.mensagem + " " + "; ".join(c["mensagem"] for c in e.campos or []))
 
-
-# ---------------------------------------------------------------------------
-# Assistente (chat em servico separado)
-# ---------------------------------------------------------------------------
 
 def _css_chat():
     c = ui.COR
@@ -427,11 +411,6 @@ def _item_html(linha: str, sublinhas: list[str]) -> str:
 
 
 def formatar_resposta(texto: str) -> str:
-    """
-    Resposta do assistente em HTML seguro: todo trecho passa por html.escape.
-    Paragrafos separados por linha em branco; linhas com "• " viram itens,
-    e a linha recuada logo abaixo de um item vira o detalhe dele.
-    """
     blocos = []
     for bloco in (b for b in texto.strip().split("\n\n") if b.strip()):
         linhas = bloco.split("\n")
@@ -488,10 +467,8 @@ def assistente():
                         '<b>Mufa</b><small><i></i>Assistente do MUFASA · responde na hora</small></div></div>',
                         unsafe_allow_html=True)
             with st.container(key="pn_chat", height=520, border=False):
-                # A abertura da Mufa e a primeira mensagem da conversa, no mesmo formato das respostas.
                 for papel, texto in [("assistant", ab["mensagem"])] + st.session_state["chat_msgs"]:
                     with st.chat_message(papel):
-                        # Todo texto (pergunta e resposta) e escapado antes de virar HTML.
                         st.markdown(formatar_resposta(texto), unsafe_allow_html=True)
             sugestao = None
             if ab.get("opcoes"):

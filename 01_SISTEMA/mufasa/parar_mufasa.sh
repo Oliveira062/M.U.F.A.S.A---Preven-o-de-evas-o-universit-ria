@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Desliga o MUFASA. Os dados do banco ficam guardados para a proxima vez.
 set -euo pipefail
 cd "$(dirname "$0")"
 if ! docker info >/dev/null 2>&1; then

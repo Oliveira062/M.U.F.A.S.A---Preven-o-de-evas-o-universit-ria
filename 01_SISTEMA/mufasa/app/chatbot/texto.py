@@ -1,16 +1,9 @@
-"""
-Tratamento do texto digitado: normalizacao para classificar, remocao de
-dado pessoal antes de qualquer envio externo e formatacao dos valores.
-"""
-
 import re
 import unicodedata
 from decimal import Decimal, InvalidOperation
 
-# Mesmo formato aceito pela API (app/api/esquemas.PADRAO_MATRICULA).
 RE_MATRICULA = re.compile(r"\b(?:\d{7}|ALU\d{4})\b", re.IGNORECASE)
 
-# Ordem importa: CPF e telefone antes da matricula, para nao sobrar pedaco.
 _REDACOES = (
     (re.compile(r"\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b"), "[CPF removido]"),
     (re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+"), "[e-mail removido]"),
@@ -26,21 +19,18 @@ def sem_acentos(texto: str) -> str:
 
 
 def normalizar(texto: str) -> str:
-    """Minusculas, sem acento, sem pontuacao e com espacos simples."""
     t = sem_acentos(texto).lower()
     t = re.sub(r"[^a-z0-9\s]", " ", t)
     return re.sub(r"\s+", " ", t).strip()
 
 
 def limpar_entrada(texto: str) -> str:
-    """Remove caracteres de controle e invisiveis usados para esconder instrucoes."""
     texto = unicodedata.normalize("NFKC", texto)
     texto = "".join(c for c in texto if unicodedata.category(c)[0] != "C" or c in "\n\t")
     return re.sub(r"\s+", " ", texto).strip()
 
 
 def redigir_dados_pessoais(texto: str) -> str:
-    """Versao da pergunta gravada no historico: sem CPF, e-mail, telefone e matricula."""
     for padrao, troca in _REDACOES:
         texto = padrao.sub(troca, texto)
     return texto
@@ -50,12 +40,6 @@ _PALAVRA_MAIUSCULA = re.compile(r"(?<!^)(?<![.!?]\s)\b[A-ZÀ-Ý][a-zà-ÿ]+")
 
 
 def texto_para_ia(texto: str) -> str:
-    """
-    Versao da pergunta que pode sair do servidor (so na classificacao
-    opcional): alem do dado pessoal, sai qualquer numero (nota, idade,
-    endereco) e qualquer palavra com inicial maiuscula fora do inicio da
-    frase, que costuma ser nome proprio.
-    """
     t = _QUALQUER_NUMERO.sub("#", redigir_dados_pessoais(texto))
     return _PALAVRA_MAIUSCULA.sub("[nome]", t)
 
@@ -66,7 +50,6 @@ _SAUDE = re.compile(r"\b(?:doen|remedio|medicament|diagnost|laudo|cid\b|gravid|g
 
 
 def menciona_saude(texto: str) -> bool:
-    """Pergunta que fala de saude ou de algo intimo nao vai para a IA, nem anonimizada."""
     return bool(_SAUDE.search(normalizar(texto)))
 
 
@@ -75,10 +58,6 @@ def matriculas_citadas(texto: str) -> list[str]:
 
 
 def numero_br(valor) -> str | None:
-    """
-    Formata o valor EXATAMENTE como esta no banco, so trocando ponto por
-    virgula. Zero continua zero; vazio continua vazio (None).
-    """
     if valor is None:
         return None
     try:

@@ -1,29 +1,3 @@
-"""
-Monta o banco do MUFASA do zero (Windows, Linux e macOS).
-
-    python -m scripts.montar_banco                 # usa o .env e o dump em banco/
-    python -m scripts.montar_banco --sim           # sem a pergunta de confirmacao
-    python -m scripts.montar_banco --contas-novas  # gera senhas novas em vez das da entrega
-    python -m scripts.montar_banco --sim --se-nao-existir   # usado pelo docker: monta na primeira vez;
-                                                            # depois so aplica as migracoes pendentes
-
-O que faz, nesta ordem:
- 1. apaga e recria o banco (nome tirado de DATABASE_URL_ADMIN);
- 2. carrega o dump do B1 (banco/Parte Samuel BackEnd B1 - limpo.sql);
- 3. aplica sql/b1_correcoes, b3_complemento, painel, b1_recalculo_indicadores, chatbot;
- 4. define as senhas dos perfis mufasa_api, mufasa_chat e mufasa_calculo com as
-    senhas que estao em DATABASE_URL, CHAT_DATABASE_URL e CALCULO_DATABASE_URL;
- 5. cifra os dados de apoio (scripts/migrar_apoio, usa APOIO_CHAVE);
- 6. aplica as migracoes de sql/migracoes e cria as atividades simuladas
-    (scripts/simular_atividades: o B1 so traz a quantidade de pendentes);
- 7. cria as contas: carrega banco/contas_iniciais.sql (mesmas senhas de
-    banco/credenciais_iniciais.csv) ou, com --contas-novas, gera senhas novas
-    em credenciais.csv.
-O score de todos os alunos e calculado pelo servico de calculo assim que ele sobe.
-
-Nao precisa do psql: o SQL roda direto pelo driver do Python (psycopg).
-"""
-
 import argparse
 import os
 import subprocess
@@ -50,11 +24,6 @@ def falhar(msg: str) -> None:
 
 
 class Executor:
-    """
-    Roda SQL direto pelo driver (psycopg), sem precisar do psql instalado.
-    Entende o formato do pg_dump: varios comandos por arquivo e blocos
-    COPY ... FROM stdin terminados por \\. ; meta-comandos do psql sao ignorados.
-    """
 
     def __init__(self, url_admin: str):
         u = make_url(url_admin)
@@ -108,10 +77,8 @@ class Executor:
 
 
 def ler_dump(dump: Path, apenas_esquema: bool = False) -> str:
-    """Texto do dump pronto para o Executor. apenas_esquema: tira os dados (usado pelos testes)."""
     saida, em_dados = [], False
     for l in dump.read_text(encoding="utf-8").splitlines(keepends=True):
-        # \restrict e \unrestrict sao meta-comandos do psql 16.10+ (nao mudam os dados).
         if l.startswith(("\\restrict", "\\unrestrict")):
             continue
         if apenas_esquema:
@@ -126,7 +93,6 @@ def ler_dump(dump: Path, apenas_esquema: bool = False) -> str:
 
 
 def construir(url_admin: str, dump: Path, apenas_esquema: bool = False, falar=print) -> None:
-    """Passos 1 a 6 (tudo menos as contas). Os testes usam com apenas_esquema=True."""
     banco = make_url(url_admin).database or "mufasa"
     if not banco.replace("_", "").isalnum():
         falhar("Nome de banco invalido em DATABASE_URL_ADMIN.")
@@ -182,7 +148,6 @@ def _ja_montado(url_admin: str) -> bool:
         with create_engine(url_admin).connect() as c:
             if not c.execute(text("SELECT to_regclass('public.usuarios') IS NOT NULL")).scalar():
                 return False
-            # Montagem interrompida antes das contas conta como nao montado.
             return bool(c.execute(text("SELECT EXISTS (SELECT 1 FROM usuarios)")).scalar())
     except Exception:
         return False
@@ -196,7 +161,6 @@ def montar(args) -> None:
     if not dump.exists():
         falhar(f"Dump do B1 nao encontrado em {dump}. Informe com --dump.")
     if args.se_nao_existir and _ja_montado(url_admin):
-        # Banco existente (docker compose up depois de uma atualizacao): so o que falta.
         print(f"Banco {banco} ja montado: aplicando so as migracoes pendentes.")
         from scripts.migrar import migrar
         from scripts.simular_atividades import simular

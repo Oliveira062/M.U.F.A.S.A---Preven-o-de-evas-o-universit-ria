@@ -1,5 +1,3 @@
-"""Coordenacao: hub (painel do curso), alunos do curso e aprovacao de parametros."""
-
 import html
 
 import streamlit as st
@@ -11,7 +9,6 @@ from paginas.admin import tabela_parametros
 
 
 def _atencao():
-    """Figma P2: "Precisam de atencao agora" - os 4 alertas mais prioritarios da fila."""
     ui.titulo_painel("Precisam de atenção agora", "Somente a Coordenação e o NAE responsável veem nomes nesta visão")
     r = cliente.get("/api/v1/alertas", limite=4)
     if not r["itens"]:

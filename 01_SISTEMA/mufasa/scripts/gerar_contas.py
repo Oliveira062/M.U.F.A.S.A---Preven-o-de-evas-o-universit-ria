@@ -1,19 +1,3 @@
-"""
-Gera as contas de acesso: uma por aluno do B1 e uma de demonstracao por perfil.
-
-    DATABASE_URL_ADMIN=postgresql+psycopg://<dono>@host/mufasa \
-        python -m scripts.gerar_contas --saida credenciais.csv [--sem-demonstracao]
-
-- Aluno: login = matricula, senha provisoria aleatoria, troca obrigatoria
-  no primeiro acesso (deve_trocar_senha) e aceite do termo.
-- Demonstracao: uma conta por perfil, marcada demonstracao = TRUE. A API
-  recusa o login delas quando AMBIENTE=producao.
-- Conta que ja existe nao e alterada (rodar de novo so cria as que faltam).
-
-O arquivo de saida tem as senhas provisorias em texto: entregar por canal
-institucional e apagar depois. O banco guarda so o hash bcrypt.
-"""
-
 import argparse
 import csv
 import os

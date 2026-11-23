@@ -1,15 +1,3 @@
-/*
- * Botao flutuante de acessibilidade do painel MUFASA (pedido do João, 28/10/2026).
- *
- * Roda na pagina do painel (injetado por ui.acessibilidade()). Tudo acontece no
- * navegador: as escolhas ficam no localStorage deste navegador e nada e enviado
- * ao servidor do MUFASA nem a terceiros.
- *
- * Unica excecao, por escolha da pessoa: o VLibras (Governo Federal). Ele fica
- * DESLIGADO por padrao e so e carregado de vlibras.gov.br depois que a pessoa
- * le o aviso e confirma (LGPD art. 6, I, III e VI). Ao traduzir, o texto em que
- * ela clicar vai para o servico do governo. Ver docs/POLITICA_DE_PRIVACIDADE.md.
- */
 (function () {
   "use strict";
   if (window.__mufasaAcessibilidade) return;
@@ -31,20 +19,19 @@
     try {
       var salvo = JSON.parse(localStorage.getItem(CHAVE) || "{}");
       for (var c in PADRAO) if (typeof salvo[c] === typeof PADRAO[c]) p[c] = salvo[c];
-    } catch (e) { /* navegador sem armazenamento: usa o padrao */ }
+    } catch (e) {  }
     if (!(p.escala >= 0 && p.escala < ESCALAS.length)) p.escala = 1;
     return p;
   }
   function salvar() {
-    try { localStorage.setItem(CHAVE, JSON.stringify(pref)); } catch (e) { /* sem armazenamento */ }
+    try { localStorage.setItem(CHAVE, JSON.stringify(pref)); } catch (e) {  }
   }
 
-  // ---------- Estilos ----------
   var SETA = "data:image/svg+xml," + encodeURIComponent(
     '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24">' +
     '<path d="M4 2l16 9.5-7 1.3 4.2 7.6-3 1.6-4.2-7.6L4 19z" fill="#000" stroke="#fff" stroke-width="1.4"/></svg>');
   var css = [
-    /* botao e menu */
+
     "#mf-a11y-botao{position:fixed;right:18px;bottom:96px;z-index:2147483000;width:52px;height:52px;border-radius:50%;",
     " border:2px solid #FFFFFF;background:#8C6410;color:#FFFFFF;box-shadow:0 4px 14px rgba(61,43,31,.35);cursor:pointer;",
     " display:flex;align-items:center;justify-content:center;padding:0;}",
@@ -81,14 +68,13 @@
     "#mf-a11y-guia{position:fixed;left:0;right:0;height:40px;margin-top:-20px;pointer-events:none;z-index:2147482999;",
     " background:rgba(201,151,32,.16);border-top:2px solid #8C6410;border-bottom:2px solid #8C6410;display:none;}",
     "html.mf-a-guia #mf-a11y-guia{display:block;}",
-    /* tamanho do texto (o menu nao fica dentro de .stApp, entao nao cresce junto) */
+
     "html.mf-a-escala .stApp{zoom:var(--mf-a-escala);}",
-    /* modo escuro e tons de cinza: filtros na pagina, imagens voltam ao normal */
+
     "html.mf-a-filtro .stApp{filter:var(--mf-a-filtro);}",
     "html.mf-a-escuro .stApp{background:#FFFFFF;}",
     "html.mf-a-escuro .stApp img,html.mf-a-escuro .stApp video{filter:invert(1) hue-rotate(180deg);}",
-    /* alto contraste: fundo preto, texto branco, links e botoes em amarelo */
-    /* selos de risco, pilulas e barras com cor propria (cor + icone + texto) ficam como estao, com contorno branco */
+
     "html.mf-a-contraste .stApp,html.mf-a-contraste .stApp *:not(svg):not(svg *):not(img):not(.mf-selo):not(.mf-selo *)",
     ":not([style*=background]):not([style*=background] *){background-color:#000 !important;",
     " color:#FFF !important;border-color:#FFF !important;box-shadow:none !important;background-image:none !important;}",
@@ -98,23 +84,23 @@
     "html.mf-a-contraste .stApp button{border:2px solid #FFE600 !important;}",
     "html.mf-a-contraste .stApp svg{color:#FFF;}",
     "html.mf-a-contraste .stApp input,html.mf-a-contraste .stApp textarea{caret-color:#FFE600;}",
-    /* fonte mais legivel (fontes do sistema com letras bem diferenciadas) */
+
     "html.mf-a-legivel .stApp,html.mf-a-legivel .stApp *:not(svg):not(svg *){font-family:Verdana,Tahoma,'Segoe UI',Arial,sans-serif !important;}",
-    /* espacamento de texto (WCAG 1.4.12) */
+
     "html.mf-a-espaco .stApp :is(p,li,label,span,td,th,a,small,b,strong,input,textarea,h1,h2,h3,h4){",
     " line-height:1.7 !important;letter-spacing:.06em !important;word-spacing:.14em !important;}",
     "html.mf-a-espaco .stApp p{margin-bottom:1em !important;}",
-    /* destacar links e botoes */
+
     "html.mf-a-links .stApp :is(a,button,[role=button],[role=tab],summary){outline:2px solid #8C6410 !important;",
     " outline-offset:2px !important;text-decoration:underline !important;}",
     "html.mf-a-links.mf-a-contraste .stApp :is(a,button,[role=button],[role=tab],summary){outline-color:#FFE600 !important;}",
     "html.mf-a-links .stApp :focus-visible{outline:4px solid #C99720 !important;outline-offset:3px !important;}",
-    /* cursor grande */
+
     "html.mf-a-cursor,html.mf-a-cursor *{cursor:url(\"" + SETA + "\") 6 3,auto !important;}",
-    /* pausar animacoes */
+
     "html.mf-a-animacoes *,html.mf-a-animacoes *::before,html.mf-a-animacoes *::after{animation-duration:0s !important;",
     " animation-iteration-count:1 !important;transition:none !important;scroll-behavior:auto !important;}",
-    /* VLibras fica escondido quando desligado */
+
     "html:not(.mf-a-libras) [vw].enabled{display:none !important;}",
     "@media print{#mf-a11y-botao,#mf-a11y-menu,#mf-a11y-guia{display:none !important;}}"
   ].join("\n");
@@ -123,7 +109,6 @@
   estilo.textContent = css;
   doc.head.appendChild(estilo);
 
-  // ---------- Menu ----------
   var ICONE = '<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"' +
     ' stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' +
     '<circle cx="12" cy="4.5" r="1.8" fill="currentColor"/><path d="M4.5 8.5c2.4.8 4.9 1.2 7.5 1.2s5.1-.4 7.5-1.2"/>' +
@@ -187,7 +172,6 @@
   guia.id = "mf-a11y-guia";
   guia.setAttribute("aria-hidden", "true");
 
-  // O botao e o primeiro item do Tab na pagina.
   doc.body.insertBefore(guia, doc.body.firstChild);
   doc.body.insertBefore(menu, doc.body.firstChild);
   doc.body.insertBefore(botao, doc.body.firstChild);
@@ -206,7 +190,6 @@
     if (!menu.hidden && !menu.contains(e.target) && !botao.contains(e.target)) abrir(false);
   });
 
-  // ---------- Aplicar as escolhas ----------
   function aplicar() {
     var escala = ESCALAS[pref.escala];
     html.style.setProperty("--mf-a-escala", String(escala));
@@ -257,12 +240,10 @@
     aplicar();
   });
 
-  // ---------- Guia de leitura ----------
   doc.addEventListener("mousemove", function (e) {
     if (pref.guia) guia.style.top = e.clientY + "px";
   }, { passive: true });
 
-  // ---------- Leitura em voz alta (voz do navegador) ----------
   function falar(texto) {
     if (!temVoz) return;
     texto = (texto || "").replace(/\s+/g, " ").trim().slice(0, 6000);
@@ -287,7 +268,6 @@
   doc.addEventListener("mouseup", lerSelecao);
   doc.addEventListener("keyup", function (e) { if (e.shiftKey) lerSelecao(e); });
 
-  // ---------- VLibras (so depois do aviso e da confirmacao) ----------
   var vlibrasCarregado = false;
   function carregarVLibras() {
     var caixa = doc.querySelector("[vw]");
@@ -308,7 +288,7 @@
     s.onload = function () {
       if (!window.VLibras) return;
       new window.VLibras.Widget(VLIBRAS);
-      // O VLibras inicia no evento "load" da pagina, que ja passou.
+
       window.dispatchEvent(new Event("load"));
     };
     s.onerror = function () {
@@ -319,8 +299,7 @@
     doc.head.appendChild(s);
   }
   function desligarVLibras() {
-    // A classe mf-a-libras sai do <html> em aplicar() e o CSS esconde o tradutor.
-    // O script ja carregado so sai da memoria ao recarregar a pagina.
+
     if (window.VLibras && doc.querySelector("[vw-plugin-wrapper].active [vw-plugin-close]")) {
       doc.querySelector("[vw-plugin-close]").click();
     }

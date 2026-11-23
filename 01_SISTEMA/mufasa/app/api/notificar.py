@@ -1,10 +1,3 @@
-"""
-Notificacoes internas geradas pela API (atribuicao, divergencia, parametro).
-
-O texto nunca leva dado sensivel: no maximo matricula e nivel (RN03). O
-detalhe fica atras do login, na tela do alerta.
-"""
-
 from sqlalchemy.engine import Connection
 
 from app.api import consultas_painel as sqlp

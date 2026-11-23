@@ -1,20 +1,7 @@
-"""
-Motor de recomendacoes (SRS v1.1, Anexo F, G.1 e G.2).
-
-Catalogo deterministico, mantido pela instituicao: nada aqui e gerado por
-IA. Regras do motor (G.2):
-- no maximo 4 recomendacoes por aluno por ciclo, ordenadas por severidade;
-- recomendacao que depende de elegibilidade externa usa linguagem
-  condicional ("verificar elegibilidade"), nunca "conceder";
-- toda recomendacao mostra o fator que a originou;
-- aluno menor de 18 anos passa pelo filtro de RN16.
-"""
-
 from app.calculo.score import ROTULOS
 
 MAXIMO_POR_CICLO = 4
 
-# Severidade: sobreposicoes primeiro (fato consumado), depois a pontuacao do fator.
 _SEVERIDADE_SOBREPOSICAO = {"S2": 300, "S4": 290, "S3": 280, "S1": 270}
 
 
@@ -38,7 +25,6 @@ def gerar_recomendacoes(resultado: dict, dados: dict, menor_de_idade: bool = Fal
             recs.append(_rec(codigo, texto, "frequencia" if codigo == "S1" else "sobreposicao", perfil,
                              _SEVERIDADE_SOBREPOSICAO[codigo]))
 
-    # I1 por disciplina: pontuacao >= 50 na nota da disciplina.
     disciplinas_em_risco = [d.get("nome") for d in dados.get("disciplinas") or [] if d.get("i1") is not None
                             and d["i1"] >= 50]
     if len(disciplinas_em_risco) >= 3:
